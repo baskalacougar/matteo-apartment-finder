@@ -1,0 +1,174 @@
+<!doctype html>
+<html lang="pl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="icon" href="icon.png">
+  <meta name="referrer" content="no-referrer">
+  <title>Matteo Apartment Finder</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header class="titlebar">
+    <div class="brand">
+      <img class="logo" src="icon.png" alt="">
+      <span class="brand-name">Matteo <b>Apartment Finder</b></span>
+      <span class="brand-sub">Kraków · wynajem</span>
+    </div>
+    <div class="titlebar-actions">
+      <div id="fbPill" class="pill pill-muted fb-only"><span class="dot"></span><span class="pill-text">Facebook: sprawdzam…</span></div>
+      <button id="scanBtn" class="btn btn-primary desktop-only"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg><span>Skanuj źródła</span></button>
+      <button id="stopBtn" class="btn btn-danger desktop-only" hidden><span>■</span><span>Zatrzymaj</span></button>
+    </div>
+  </header>
+
+  <div class="layout">
+    <aside class="sidebar">
+      <section class="panel">
+        <h3>Rodzaj</h3>
+        <div class="segmented" id="typeSeg">
+          <button data-v="mieszkanie" class="active">Mieszkanie</button>
+          <button data-v="pokoj">Pokój</button>
+          <button data-v="all">Wszystko</button>
+        </div>
+      </section>
+
+      <section class="panel">
+        <h3>Cena <span class="hint">zł / mies.</span></h3>
+        <div class="range">
+          <label><span>od</span><input id="priceMin" type="number" min="0" step="100" placeholder="1500"></label>
+          <span class="range-sep">–</span>
+          <label><span>do</span><input id="priceMax" type="number" min="0" step="100" placeholder="4000"></label>
+        </div>
+      </section>
+
+      <section class="panel">
+        <h3>Metraż <span class="hint">m²</span></h3>
+        <div class="range">
+          <label><span>od</span><input id="areaMin" type="number" min="0" placeholder="30"></label>
+          <span class="range-sep">–</span>
+          <label><span>do</span><input id="areaMax" type="number" min="0" placeholder="80"></label>
+        </div>
+      </section>
+
+      <section class="panel">
+        <h3>Liczba pokoi</h3>
+        <div class="chips" id="roomsChips">
+          <button data-v="1">1</button>
+          <button data-v="2">2</button>
+          <button data-v="3">3</button>
+          <button data-v="4">4+</button>
+        </div>
+      </section>
+
+      <section class="panel">
+        <h3>Dzielnica / okolica</h3>
+        <input id="district" class="input" list="districtList" placeholder="np. Krowodrza, Kazimierz, Ruczaj">
+        <datalist id="districtList"></datalist>
+      </section>
+
+      <section class="panel">
+        <h3>Słowa kluczowe <span class="hint">w tytule i opisie</span></h3>
+        <input id="keyword" class="input" placeholder="np. balkon, zwierzęta, garaż">
+        <p class="help">Rozdziel przecinkami. Pierwsze słowo trafia też do wyszukiwarki OLX i Otodom, wszystkie są sprawdzane lokalnie w treści ogłoszeń i postów.</p>
+      </section>
+
+      <section class="panel">
+        <h3>Opcje</h3>
+        <label class="switch"><input id="onlyPrivate" type="checkbox"><span class="track"></span><span>Tylko od osób prywatnych</span></label>
+        <label class="switch"><input id="hideSeekers" type="checkbox"><span class="track"></span><span>Ukryj posty „szukam mieszkania”</span></label>
+        <div class="slider-row desktop-only"><span>Stron na portal</span><input id="pages" type="range" min="1" max="6" value="2"><b id="pagesVal">2</b></div>
+        <div class="slider-row desktop-only"><span>Przewinięć na grupę FB</span><input id="fbScrolls" type="range" min="2" max="20" value="6"><b id="fbScrollsVal">6</b></div>
+      </section>
+
+      <section class="panel">
+        <h3>Źródła</h3>
+        <div class="sources" id="sources"></div>
+      </section>
+
+      <section class="panel fb-only">
+        <h3>Grupy na Facebooku</h3>
+        <div class="fb-actions">
+          <button id="fbLoginBtn" class="btn btn-ghost btn-sm">Zaloguj do Facebooka</button>
+          <button id="fbFindBtn" class="btn btn-ghost btn-sm" title="Otwiera wyszukiwarkę grup na FB, skopiuj adres grupy">Znajdź grupę</button>
+          <button id="fbLogoutBtn" class="btn btn-ghost btn-sm" title="Wyloguj z Facebooka w tej aplikacji">Wyloguj</button>
+        </div>
+        <div class="groups" id="groups"></div>
+        <div class="group-add">
+          <input id="groupUrl" class="input" placeholder="Wklej adres grupy (facebook.com/groups/…)">
+          <button id="groupAddBtn" class="btn btn-ghost btn-sm">Dodaj</button>
+        </div>
+      </section>
+
+      <section class="panel panel-danger desktop-only">
+        <button id="clearBtn" class="btn btn-ghost btn-sm">Wyczyść zapisane ogłoszenia</button>
+      </section>
+    </aside>
+
+    <main class="content">
+      <div class="toolbar">
+        <button id="filtersToggle" class="btn btn-ghost btn-sm mobile-only">Filtry</button>
+        <div class="tabs" id="tabs">
+          <button data-v="all" class="active">Wszystkie <span class="count" id="cntAll">0</span></button>
+          <button data-v="new">Nowe <span class="count" id="cntNew">0</span></button>
+          <button data-v="fav">Ulubione <span class="count" id="cntFav">0</span></button>
+          <button data-v="hidden">Ukryte <span class="count" id="cntHidden">0</span></button>
+        </div>
+        <div class="toolbar-right">
+          <input id="quick" class="input input-sm" placeholder="Szybkie filtrowanie wyników…">
+          <select id="sort" class="select">
+            <option value="newest">Najnowsze</option>
+            <option value="priceAsc">Cena rosnąco</option>
+            <option value="priceDesc">Cena malejąco</option>
+            <option value="areaDesc">Metraż malejąco</option>
+            <option value="ppm">Cena za m²</option>
+          </select>
+          <div class="segmented segmented-sm" id="viewSeg">
+            <button data-v="grid" class="active" title="Kafelki"><svg viewBox="0 0 24 24" width="15" height="15" fill="currentColor"><rect x="3" y="3" width="8" height="8" rx="1.5"/><rect x="13" y="3" width="8" height="8" rx="1.5"/><rect x="3" y="13" width="8" height="8" rx="1.5"/><rect x="13" y="13" width="8" height="8" rx="1.5"/></svg></button>
+            <button data-v="list" title="Lista"><svg viewBox="0 0 24 24" width="15" height="15" fill="currentColor"><rect x="3" y="4" width="18" height="3.5" rx="1.5"/><rect x="3" y="10.25" width="18" height="3.5" rx="1.5"/><rect x="3" y="16.5" width="18" height="3.5" rx="1.5"/></svg></button>
+          </div>
+          <button id="exportBtn" class="btn btn-ghost btn-sm" title="Eksportuj widoczne wyniki do CSV">CSV</button>
+        </div>
+      </div>
+
+      <div id="progress" class="progress" hidden><div class="bar"></div></div>
+
+      <div id="results" class="results grid"></div>
+
+      <div id="empty" class="empty">
+        <div class="empty-art"><svg viewBox="0 0 24 24" width="44" height="44" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11l9-8 9 8"/><path d="M5 10v10h14V10"/><path d="M10 20v-6h4v6"/></svg></div>
+        <h2>Brak ogłoszeń do pokazania</h2>
+        <p class="desktop-only">Ustaw filtry po lewej i kliknij <b>Skanuj źródła</b>. Wyniki zostaną zapamiętane, a nowe ogłoszenia oznaczone przy kolejnym skanie.</p><p class="web-only">Żadne ogłoszenie nie pasuje do filtrów. Poluzuj cenę, metraż albo słowa kluczowe.</p>
+      </div>
+    </main>
+
+    <aside id="drawer" class="drawer" hidden>
+      <div class="drawer-head">
+        <span id="drawerSource" class="badge"></span>
+        <button id="drawerClose" class="icon-btn" title="Zamknij">✕</button>
+      </div>
+      <div id="drawerBody" class="drawer-body"></div>
+      <div class="drawer-foot">
+        <button id="drawerOpen" class="btn btn-primary">Otwórz ogłoszenie</button>
+        <button id="drawerCopy" class="btn btn-ghost">Kopiuj link</button>
+        <button id="drawerFav" class="btn btn-ghost">☆ Ulubione</button>
+        <button id="drawerHide" class="btn btn-ghost">Ukryj</button>
+      </div>
+    </aside>
+  </div>
+
+  <footer class="statusbar">
+    <div class="status-sources" id="statusSources"></div>
+    <div class="status-right">
+      <span id="statusText">Gotowy</span>
+      <button id="logToggle" class="btn btn-ghost btn-xs desktop-only">Log</button>
+    </div>
+  </footer>
+  <div id="log" class="log" hidden></div>
+  <div id="toast" class="toast" hidden></div>
+
+  <script src="mock.js"></script>
+  <script src="web.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>

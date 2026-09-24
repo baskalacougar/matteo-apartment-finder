@@ -1,0 +1,35 @@
+{
+  "updatedAt": "2026-09-24T22:16:15.757Z",
+  "runId": "mug3c96h",
+  "total": 322,
+  "added": 322,
+  "seconds": 26,
+  "sources": {
+    "morizon": {
+      "ok": true,
+      "count": 71,
+      "ms": 5521
+    },
+    "otodom": {
+      "ok": true,
+      "count": 69,
+      "ms": 7724
+    },
+    "nol": {
+      "ok": true,
+      "count": 81,
+      "ms": 8114
+    },
+    "olx": {
+      "ok": true,
+      "count": 103,
+      "ms": 8894
+    }
+  },
+  "counts": {
+    "nol": 81,
+    "olx": 103,
+    "otodom": 67,
+    "morizon": 71
+  }
+}

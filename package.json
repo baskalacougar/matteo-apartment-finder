@@ -1,0 +1,13 @@
+{
+  "name": "matteo-apartment-finder-web",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Kraków rental listings aggregator: scraped on a schedule by GitHub Actions, served as a static site.",
+  "scripts": {
+    "scrape": "node scraper/run.js",
+    "serve": "node scraper/serve.js"
+  },
+  "dependencies": {
+    "playwright": "^1.48.0"
+  }
+}
