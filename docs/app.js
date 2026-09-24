@@ -474,6 +474,9 @@ async function init() {
     if (state.selectedId === l.id) openDrawer(l.id, { keepIndex: true });
     clearTimeout(renderTimer); renderTimer = setTimeout(render, 400);
   });
+  // Account sign-in (web): re-apply saved favourites/filters once the cloud state is merged.
+  document.addEventListener('cloud:merged', async () => { state.settings = await finder.getSettings(); applyFiltersToUI(state.settings.filters); render(); });
+  document.addEventListener('cloud:auth', e => { if (e.detail.user) toast('Zalogowano: ' + (e.detail.user.name || e.detail.user.email) + '. Ulubione zapisują się na koncie.'); });
   // Fill in photos missing from older OLX entries without waiting for the next scan.
   finder.enrichMissing();
   finder.onDone(async d => {

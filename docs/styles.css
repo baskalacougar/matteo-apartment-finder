@@ -289,3 +289,7 @@ mark { background: rgba(251,191,36,0.3); color: #fde68a; border-radius: 3px; pad
 .foot-link { color: var(--muted); text-decoration: none; margin-right: 10px; }
 .foot-link:hover { color: var(--text); }
 .web .web-only.foot-link { display: inline !important; }
+
+.auth-box { display: flex; align-items: center; gap: 8px; }
+.web .web-only.auth-box { display: flex !important; }
+.auth-box .avatar { width: 18px; height: 18px; border-radius: 50%; }

@@ -19,6 +19,7 @@
   let listings = [];
   let meta = null;
 
+  const cloudSave = () => { if (window.cloudSync && window.cloudSync.user) window.cloudSync.save({ flags, filters: settings.filters }); };
   const bust = () => '?t=' + Math.floor(Date.now() / 60000);
   async function loadData() {
     const [l, m] = await Promise.all([
@@ -42,7 +43,7 @@
     getSettings: async () => settings,
     setSettings: async patch => {
       settings = { ...settings, ...patch };
-      if (patch.filters) { settings.filters = { ...DEFAULT_FILTERS, ...patch.filters, sources: { ...patch.filters.sources, facebook: false } }; LS.set('filters', settings.filters); }
+      if (patch.filters) { settings.filters = { ...DEFAULT_FILTERS, ...patch.filters, sources: { ...patch.filters.sources, facebook: false } }; LS.set('filters', settings.filters); cloudSave(); }
       if (patch.sort) LS.set('sort', patch.sort);
       if (patch.view) LS.set('view', patch.view);
       return settings;
@@ -53,9 +54,19 @@
       LS.set('flags', flags);
       const l = listings.find(x => x.id === id);
       if (l) l[key] = value;
+      cloudSave();
       return l || null;
     },
-    clearListings: async () => { flags = {}; LS.set('flags', flags); return true; },
+    clearListings: async () => { flags = {}; LS.set('flags', flags); cloudSave(); return true; },
+    /** Called by auth.js after sign-in: union of account state and this browser's state. */
+    mergeCloud: cloud => {
+      for (const [id, f] of Object.entries(cloud.flags || {})) flags[id] = { ...(flags[id] || {}), ...f, fav: !!((flags[id] || {}).fav || f.fav), hidden: !!((flags[id] || {}).hidden || f.hidden) };
+      LS.set('flags', flags);
+      if (cloud.filters && !LS.get('filters', null)) { settings.filters = { ...DEFAULT_FILTERS, ...cloud.filters, sources: { ...cloud.filters.sources, facebook: false } }; LS.set('filters', settings.filters); }
+      listings.forEach(l => { const f = flags[l.id] || {}; l.fav = !!f.fav; l.hidden = !!f.hidden; });
+      document.dispatchEvent(new CustomEvent('cloud:merged'));
+      return { flags, filters: settings.filters };
+    },
     startScrape: async () => ({ ok: false, error: 'Na stronie dane odświeżają się automatycznie co godzinę.' }),
     stopScrape: async () => true,
     fetchDetails: async id => listings.find(x => x.id === id) || null,
