@@ -30,7 +30,7 @@
     listings = l.map(x => {
       if (!seen[x.id]) seen[x.id] = x.firstSeenAt || now;
       const f = flags[x.id] || {};
-      return { ...x, fav: !!f.fav, hidden: !!f.hidden, firstSeenAt: seen[x.id], detailsFetched: true };
+      return { ...x, fav: !!f.fav, hidden: !!f.hidden, firstSeenAt: x.firstSeenAt || seen[x.id], detailsFetched: true };
     });
     LS.set('seen', seen);
     return listings;
