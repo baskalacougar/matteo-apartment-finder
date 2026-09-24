@@ -1,0 +1,3 @@
+User-agent: *
+Allow: /
+Sitemap: https://baskalacougar.github.io/matteo-apartment-finder/sitemap.xml

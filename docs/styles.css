@@ -284,3 +284,8 @@ mark { background: rgba(251,191,36,0.3); color: #fde68a; border-radius: 3px; pad
   .web .results.grid { grid-template-columns: 1fr; padding: 12px; }
   .web .statusbar { position: sticky; bottom: 0; }
 }
+
+.sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+.foot-link { color: var(--muted); text-decoration: none; margin-right: 10px; }
+.foot-link:hover { color: var(--text); }
+.web .web-only.foot-link { display: inline !important; }

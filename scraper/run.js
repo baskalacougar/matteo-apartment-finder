@@ -99,11 +99,38 @@ async function main() {
     sources: status,
     counts: all.reduce((m, l) => { m[l.source] = (m[l.source] || 0) + 1; return m; }, {})
   }, null, 2));
+  writeStaticPages(all);
   details.shutdown();
   await closeBrowser();
   log('app', `gotowe w ${Math.round((Date.now() - started) / 1000)}s`);
   const failed = Object.values(status).filter(s => !s.ok).length;
   if (failed === SCRAPERS.length) { console.error('Wszystkie źródła zawiodły'); process.exit(1); }
+}
+
+function siteUrl() {
+  try { return 'https://' + fs.readFileSync(path.join(__dirname, '..', 'docs', 'CNAME'), 'utf8').trim(); } catch (_) { return 'https://baskalacougar.github.io/matteo-apartment-finder'; }
+}
+
+const escHtml = s => String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+
+/** Crawlable static list of current listings + sitemap; the app itself renders client-side. */
+function writeStaticPages(all) {
+  const site = siteUrl();
+  const docs = path.join(__dirname, '..', 'docs');
+  const rows = all.filter(l => !l.seeker).map(l => `<li><a href="${escHtml(l.url)}" rel="nofollow noopener" target="_blank">${escHtml(l.title)}</a> – ${l.price ? l.price + ' zł' : 'cena do uzgodnienia'}${l.area ? ', ' + l.area + ' m²' : ''}${l.rooms ? ', ' + l.rooms + ' pok.' : ''}${l.district ? ', ' + escHtml(l.district) : ''} <small>(${escHtml(l.source)})</small></li>`).join('\n');
+  const html = `<!doctype html><html lang="pl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Lista ogłoszeń wynajmu w Krakowie (${all.length}) | Matteo Apartment Finder</title><meta name="description" content="Pełna lista ${all.length} aktualnych ogłoszeń wynajmu mieszkań i pokoi w Krakowie z OLX, Otodom, Morizon i Nieruchomosci-online."><link rel="canonical" href="${site}/lista.html"><link rel="icon" href="icon.png"><style>body{font-family:system-ui,Segoe UI,sans-serif;max-width:900px;margin:30px auto;padding:0 16px;line-height:1.5;color:#222}a{color:#3b4cca}li{margin:4px 0}small{color:#777}</style></head><body><h1>Mieszkania i pokoje do wynajęcia w Krakowie</h1><p>${all.length} ogłoszeń z OLX, Otodom, Morizon i Nieruchomosci-online, stan na ${new Date().toLocaleString('pl-PL')}. <a href="./">Wyszukiwarka z filtrami</a>.</p><ul>${rows}</ul></body></html>`;
+  fs.writeFileSync(path.join(docs, 'lista.html'), html);
+  const today = new Date().toISOString().slice(0, 10);
+  fs.writeFileSync(path.join(docs, 'sitemap.xml'), `<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+<url><loc>${site}/</loc><lastmod>${today}</lastmod><changefreq>hourly</changefreq><priority>1.0</priority></url>
+<url><loc>${site}/lista.html</loc><lastmod>${today}</lastmod><changefreq>hourly</changefreq><priority>0.8</priority></url>
+</urlset>
+`);
+  for (const f of ['index.html', 'robots.txt']) {
+    const p = path.join(docs, f);
+    fs.writeFileSync(p, fs.readFileSync(p, 'utf8').replace(/https:\/\/SITE_URL/g, site));
+  }
 }
 
 main().catch(e => { console.error(e); process.exit(1); });
