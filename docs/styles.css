@@ -56,7 +56,7 @@ button, input, select { font: inherit; color: inherit; }
 .brand { display: flex; align-items: center; gap: 10px; }
 .logo { width: 28px; height: 28px; border-radius: 7px; display: block; box-shadow: 0 4px 14px rgba(217,182,86,0.35); }
 .brand-name { font-size: 14px; letter-spacing: 0.2px; }
-.brand-name b { font-weight: 700; }
+.brand-name b { font-weight: 700; color: var(--green); }
 .brand-sub { color: var(--muted); font-size: 12px; margin-left: 4px; padding-left: 10px; border-left: 1px solid var(--border-strong); }
 .titlebar-actions { display: flex; align-items: center; gap: 10px; }
 

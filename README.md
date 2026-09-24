@@ -1,4 +1,4 @@
-# Matteo Apartment Finder (web)
+# WynajemRadar (wynajemradar.pl)
 
 Statyczna strona z ogłoszeniami wynajmu mieszkań i pokoi w Krakowie (OLX, Otodom, Morizon, Nieruchomosci-online).
 
