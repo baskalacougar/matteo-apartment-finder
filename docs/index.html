@@ -98,6 +98,11 @@
         <div class="sources" id="sources"></div>
       </section>
 
+      <section class="panel web-only" id="listsPanel">
+        <h3>Wspólne listy <span class="hint">z rodziną, znajomymi</span></h3>
+        <div id="listsBody"></div>
+      </section>
+
       <section class="panel fb-only">
         <h3>Grupy na Facebooku</h3>
         <div class="fb-actions">
@@ -125,6 +130,7 @@
           <button data-v="new">Nowe <span class="count" id="cntNew">0</span></button>
           <button data-v="fav">Ulubione <span class="count" id="cntFav">0</span></button>
           <button data-v="hidden">Ukryte <span class="count" id="cntHidden">0</span></button>
+          <button data-v="list" class="web-only" id="tabList">Lista <span class="count" id="cntList">0</span></button>
         </div>
         <div class="toolbar-right">
           <input id="quick" class="input input-sm" placeholder="Szybkie filtrowanie wyników…">
@@ -164,6 +170,7 @@
         <button id="drawerOpen" class="btn btn-primary">Otwórz ogłoszenie</button>
         <button id="drawerCopy" class="btn btn-ghost">Kopiuj link</button>
         <button id="drawerFav" class="btn btn-ghost">☆ Ulubione</button>
+        <button id="drawerList" class="btn btn-ghost web-only">+ Do listy</button>
         <button id="drawerHide" class="btn btn-ghost">Ukryj</button>
       </div>
     </aside>
@@ -173,6 +180,7 @@
     <div class="status-sources" id="statusSources"></div>
     <div class="status-right">
       <a class="web-only foot-link" href="lista.html">Lista ogłoszeń</a>
+      <a class="web-only foot-link" href="prywatnosc.html">Prywatność</a>
       <span id="statusText">Gotowy</span>
       <button id="logToggle" class="btn btn-ghost btn-xs desktop-only">Log</button>
     </div>
@@ -180,10 +188,10 @@
   <div id="log" class="log" hidden></div>
   <div id="toast" class="toast" hidden></div>
 
-  <script src="mock.js"></script>
   <script src="firebase-config.js"></script>
   <script src="web.js"></script>
   <script type="module" src="auth.js"></script>
+  <script type="module" src="lists.js"></script>
   <script src="app.js"></script>
 </body>
 </html>

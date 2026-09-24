@@ -293,3 +293,21 @@ mark { background: rgba(251,191,36,0.3); color: #fde68a; border-radius: 3px; pad
 .auth-box { display: flex; align-items: center; gap: 8px; }
 .web .web-only.auth-box { display: flex !important; }
 .auth-box .avatar { width: 18px; height: 18px; border-radius: 50%; }
+
+/* ---------- Shared lists ---------- */
+.web .tabs .web-only { display: flex !important; }
+.card .icon-btn.tolist.on { color: var(--green); }
+.list-item { display: flex; flex-direction: column; }
+.list-item .card { border-bottom-left-radius: 0; border-bottom-right-radius: 0; }
+.list-item .card:hover { transform: none; }
+.list-extras { background: var(--surface-2); border: 1px solid var(--border); border-top: 0; border-radius: 0 0 var(--radius) var(--radius); padding: 12px 13px; display: flex; flex-direction: column; gap: 8px; }
+.list-meta { font-size: 11.5px; color: var(--muted); }
+.list-votes { display: flex; gap: 6px; align-items: center; }
+.list-votes .vote { border: 1px solid var(--border-strong); background: var(--bg-2); color: var(--text-2); border-radius: 8px; padding: 4px 10px; cursor: pointer; }
+.list-votes .vote.on { border-color: var(--accent); background: rgba(124,108,255,0.18); color: #fff; }
+.list-votes .unlist { margin-left: auto; font-size: 12px; }
+.list-extras .note { width: 100%; resize: vertical; background: var(--bg-2); border: 1px solid var(--border-strong); border-radius: 9px; color: var(--text); padding: 7px 10px; font: inherit; font-size: 12.5px; outline: none; }
+.list-extras .note:focus { border-color: var(--accent); }
+.members { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px; }
+.member { font-size: 12px; background: var(--bg-2); border: 1px solid var(--border); border-radius: 999px; padding: 3px 9px; display: inline-flex; align-items: center; gap: 2px; }
+.member .icon-btn { padding: 0 4px; font-size: 11px; }

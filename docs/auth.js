@@ -18,6 +18,7 @@ if (!cfg || !box) {
   const auth = getAuth(app);
   const db = getFirestore(app);
   const provider = new GoogleAuthProvider();
+  window.fb = { app, auth, db };
   let user = null;
   let saveTimer = null;
 

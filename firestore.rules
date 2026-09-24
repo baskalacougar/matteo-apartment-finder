@@ -1,9 +1,25 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    // Każdy zalogowany użytkownik czyta i zapisuje wyłącznie własny dokument.
+    function signedIn() { return request.auth != null; }
+    function email() { return request.auth.token.email.lower(); }
+    function isMember(data) { return signedIn() && email() in data.memberEmails; }
+
+    // Personal data: only the owner.
     match /users/{uid} {
-      allow read, write: if request.auth != null && request.auth.uid == uid;
+      allow read, write: if signedIn() && request.auth.uid == uid;
+    }
+
+    // Shared lists: members (by e-mail) can read and change them; the creator must be a member.
+    match /lists/{listId} {
+      allow read: if isMember(resource.data);
+      allow create: if signedIn() && request.resource.data.ownerUid == request.auth.uid && email() in request.resource.data.memberEmails;
+      allow update: if isMember(resource.data);
+      allow delete: if signedIn() && resource.data.ownerUid == request.auth.uid;
+
+      match /items/{itemId} {
+        allow read, write: if isMember(get(/databases/$(database)/documents/lists/$(listId)).data);
+      }
     }
   }
 }
