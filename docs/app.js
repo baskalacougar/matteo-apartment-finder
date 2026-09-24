@@ -461,6 +461,31 @@ async function setFbStatus({ loggedIn }) {
   $('fbLoginBtn').textContent = loggedIn ? 'Otwórz Facebooka' : 'Zaloguj do Facebooka';
 }
 
+/* ---------- Entry screen (web): listings are shown after Google sign-in ---------- */
+function gateEnabled() {
+  if (!finder.isWeb || !window.FIREBASE_CONFIG) return false;
+  // Local development without an account: http://localhost:5174/?nogate
+  if (location.hostname === 'localhost' && location.search.includes('nogate')) return false;
+  return true;
+}
+function setGate(show) {
+  const g = $('gate'); if (!g) return;
+  if (!gateEnabled()) { g.hidden = true; return; }
+  g.hidden = !show;
+  document.body.style.overflow = show ? 'hidden' : '';
+}
+function initGate() {
+  const g = $('gate'); if (!g) return;
+  if (!gateEnabled()) { g.hidden = true; return; }
+  g.hidden = false;                       // shown until Firebase reports a signed-in user
+  document.body.style.overflow = 'hidden';
+  const btn = $('gateLogin');
+  btn.disabled = false;
+  btn.addEventListener('click', () => { if (window.fb && window.fb.signIn) window.fb.signIn(); else toast('Logowanie jeszcze się ładuje, spróbuj za chwilę'); });
+  const meta = finder.getMeta && finder.getMeta();
+  if (meta && meta.total) $('gateStats').textContent = `${meta.total} aktualnych ogłoszeń · ostatnia aktualizacja ${new Date(meta.updatedAt).toLocaleString('pl-PL', { hour: '2-digit', minute: '2-digit', day: 'numeric', month: 'numeric' })}`;
+}
+
 /* ---------- Init ---------- */
 async function init() {
   if (finder.isWeb) document.body.classList.add('web');
@@ -566,7 +591,11 @@ async function init() {
   });
   // Account sign-in (web): re-apply saved favourites/filters once the cloud state is merged.
   document.addEventListener('cloud:merged', async () => { state.settings = await finder.getSettings(); applyFiltersToUI(state.settings.filters); render(); });
-  document.addEventListener('cloud:auth', e => { if (e.detail.user) toast('Zalogowano: ' + (e.detail.user.name || e.detail.user.email) + '. Ulubione zapisują się na koncie.'); });
+  document.addEventListener('cloud:auth', e => {
+    setGate(!e.detail.user);
+    if (e.detail.user) toast('Zalogowano: ' + (e.detail.user.name || e.detail.user.email) + '. Ulubione zapisują się na koncie.');
+  });
+  initGate();
   // Fill in photos missing from older OLX entries without waiting for the next scan.
   finder.enrichMissing();
   finder.onDone(async d => {

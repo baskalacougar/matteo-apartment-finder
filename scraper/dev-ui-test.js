@@ -13,7 +13,7 @@ const path = require('path');
   const errors = [];
   page.on('pageerror', e => errors.push('pageerror: ' + e.message));
   page.on('console', m => { if (m.type() === 'error' && !/firebase-config|favicon/.test(m.text())) errors.push('console: ' + m.text()); });
-  await page.goto('http://localhost:5174/', { waitUntil: 'networkidle' });
+  await page.goto('http://localhost:5174/?nogate', { waitUntil: 'networkidle' });
   await page.waitForSelector('.card');
   const cards = await page.locator('.card').count();
 
