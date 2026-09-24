@@ -26,9 +26,16 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap">
   <link rel="stylesheet" href="styles.css">
+  <script>
+    // Before anything renders: returning users get a neutral loading screen instead of the welcome page,
+    // everyone else sees the welcome page immediately (no flash of the app underneath).
+    try { if (localStorage.getItem('wr_auth') === '1') document.documentElement.classList.add('was-auth'); } catch (e) {}
+    if (location.hostname === 'localhost' && location.search.indexOf('nogate') >= 0) document.documentElement.classList.add('nogate');
+  </script>
 </head>
 <body>
-  <section id="gate" class="gate web-only" hidden>
+  <div id="boot" class="boot"><img src="icon.png" alt=""><div class="boot-bar"><span></span></div></div>
+  <section id="gate" class="gate">
     <div class="gate-photo">
       <div class="gate-photo-text">
         <h2>Wszystkie mieszkania do wynajęcia w Krakowie. <b>Jedna strona.</b></h2>

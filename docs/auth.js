@@ -60,6 +60,7 @@ if (!cfg || !box) {
   getRedirectResult(auth).catch(() => {});
   onAuthStateChanged(auth, async u => {
     user = u;
+    try { localStorage.setItem('wr_auth', u ? '1' : '0'); } catch (e) { /* private mode */ }
     render();
     if (u) { try { await pull(); } catch (e) { console.warn('cloud load failed', e); } }
     document.dispatchEvent(new CustomEvent('cloud:auth', { detail: { user: u ? { email: u.email, name: u.displayName } : null } }));

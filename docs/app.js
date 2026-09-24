@@ -470,15 +470,16 @@ function gateEnabled() {
 }
 function setGate(show) {
   const g = $('gate'); if (!g) return;
+  document.documentElement.classList.add('app-ready');      // auth state known: drop the boot screen
   if (!gateEnabled()) { g.hidden = true; return; }
+  document.documentElement.classList.toggle('was-auth', !show);
   g.hidden = !show;
   document.body.style.overflow = show ? 'hidden' : '';
 }
 function initGate() {
   const g = $('gate'); if (!g) return;
-  if (!gateEnabled()) { g.hidden = true; return; }
-  g.hidden = false;                       // shown until Firebase reports a signed-in user
-  document.body.style.overflow = 'hidden';
+  if (!gateEnabled()) { g.hidden = true; document.documentElement.classList.add('app-ready'); return; }
+  document.body.style.overflow = 'hidden';                   // welcome (or boot) screen stays until Firebase answers
   const btn = $('gateLogin');
   btn.disabled = false;
   btn.addEventListener('click', () => { if (window.fb && window.fb.signIn) window.fb.signIn(); else toast('Logowanie jeszcze się ładuje, spróbuj za chwilę'); });
