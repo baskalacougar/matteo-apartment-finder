@@ -26,6 +26,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap">
   <link rel="stylesheet" href="styles.css">
+  <link rel="stylesheet" href="components.css">
   <script>
     // Before anything renders: returning users get a neutral loading screen instead of the welcome page,
     // everyone else sees the welcome page immediately (no flash of the app underneath).
@@ -173,7 +174,7 @@
           <button data-v="new">Nowe <span class="count" id="cntNew">0</span></button>
           <button data-v="fav">Ulubione <span class="count" id="cntFav">0</span></button>
           <button data-v="hidden">Ukryte <span class="count" id="cntHidden">0</span></button>
-          <button data-v="list" class="web-only" id="tabList">Lista <span class="count" id="cntList">0</span></button>
+          <button data-v="list" class="web-only" id="tabList">Wspólna lista <span class="count" id="cntList">0</span></button>
         </div>
         <div class="toolbar-right">
           <input id="quick" class="input input-sm" placeholder="Szybkie filtrowanie wyników…">
@@ -235,6 +236,7 @@
   <script src="web.js"></script>
   <script type="module" src="auth.js"></script>
   <script type="module" src="lists.js"></script>
+  <script type="module" src="admin.js"></script>
   <script src="app.js"></script>
 </body>
 </html>

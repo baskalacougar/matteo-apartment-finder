@@ -2,23 +2,51 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
     function signedIn() { return request.auth != null; }
+    function verified() { return signedIn() && request.auth.token.email != null && request.auth.token.email_verified == true; }
     function email() { return request.auth.token.email.lower(); }
-    function isMember(data) { return signedIn() && email() in data.memberEmails; }
+    // Site administrator (read-only statistics panel).
+    function siteAdmin() { return verified() && email() == 'matteohoffman2@gmail.com'; }
+    function isMember(data) { return verified() && email() in data.memberEmails; }
+    function isListOwner(data) { return signedIn() && data.ownerUid == request.auth.uid; }
 
-    // Personal data: only the owner.
+    // Personal data: only the owner writes; the site administrator may read for statistics.
     match /users/{uid} {
-      allow read, write: if signedIn() && request.auth.uid == uid;
+      allow read: if (signedIn() && request.auth.uid == uid) || siteAdmin();
+      allow write: if signedIn() && request.auth.uid == uid;
     }
 
-    // Shared lists: members (by e-mail) can read and change them; the creator must be a member.
+    // Shared lists. The creator is the list administrator: only they invite, remove people,
+    // rename or delete the list, and nobody can remove them or take the list over.
     match /lists/{listId} {
-      allow read: if isMember(resource.data);
-      allow create: if signedIn() && request.resource.data.ownerUid == request.auth.uid && email() in request.resource.data.memberEmails;
-      allow update: if isMember(resource.data);
-      allow delete: if signedIn() && resource.data.ownerUid == request.auth.uid;
+      allow read: if isListOwner(resource.data) || isMember(resource.data) || siteAdmin();
+
+      allow create: if verified()
+        && request.resource.data.ownerUid == request.auth.uid
+        && request.resource.data.ownerEmail == email()
+        && request.resource.data.memberEmails is list
+        && request.resource.data.memberEmails.size() <= 30
+        && email() in request.resource.data.memberEmails;
+
+      // List administrator: may change anything except ownership, and always stays a member.
+      allow update: if isListOwner(resource.data)
+        && request.resource.data.ownerUid == resource.data.ownerUid
+        && request.resource.data.ownerEmail == email()
+        && email() in request.resource.data.memberEmails
+        && request.resource.data.memberEmails.size() <= 30;
+
+      // Other members: may only leave (remove their own e-mail) and keep their own profile entry.
+      allow update: if isMember(resource.data) && !isListOwner(resource.data)
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['memberEmails', 'members'])
+        && (request.resource.data.memberEmails == resource.data.memberEmails
+            || request.resource.data.memberEmails.toSet() == resource.data.memberEmails.toSet().difference([email()].toSet()))
+        && request.resource.data.get('members', {}).diff(resource.data.get('members', {})).affectedKeys().hasOnly([request.auth.uid]);
+
+      allow delete: if isListOwner(resource.data);
 
       match /items/{itemId} {
-        allow read, write: if isMember(get(/databases/$(database)/documents/lists/$(listId)).data);
+        function list() { return get(/databases/$(database)/documents/lists/$(listId)).data; }
+        allow read: if isListOwner(list()) || isMember(list()) || siteAdmin();
+        allow write: if isListOwner(list()) || isMember(list());
       }
     }
   }

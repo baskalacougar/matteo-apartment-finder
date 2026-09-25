@@ -133,8 +133,9 @@ function writeStaticPages(all) {
 `);
   for (const f of ['index.html', 'robots.txt']) {
     const p = path.join(docs, f);
-    // Idempotent: swaps the placeholder or a previously written site origin for the current one.
-    fs.writeFileSync(p, fs.readFileSync(p, 'utf8').replace(/https:\/\/(SITE_URL|baskalacougar\.github\.io\/matteo-apartment-finder|[a-z0-9.-]+\.(?:pl|com|eu|io))(?=\/)/g, site));
+    // Idempotent: swaps the placeholder or one of our own previous origins for the current one.
+    // Only known origins: a generic domain pattern once rewrote the Google Fonts URL.
+    fs.writeFileSync(p, fs.readFileSync(p, 'utf8').replace(/https:\/\/(SITE_URL|baskalacougar\.github\.io\/matteo-apartment-finder|(?:www\.)?wynajemradar\.pl)(?=\/)/g, site));
   }
 }
 

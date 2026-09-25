@@ -296,29 +296,223 @@ function listExtrasHtml(it) {
   </div>`;
 }
 
+/* ---------- Modal ---------- */
+function openModal(html, { onMount, wide = false } = {}) {
+  closeModal();
+  const wrap = document.createElement('div');
+  wrap.className = 'modal-backdrop';
+  wrap.id = 'modal';
+  wrap.innerHTML = `<div class="modal ${wide ? 'modal-wide' : ''}" role="dialog" aria-modal="true"><button class="modal-x icon-btn" data-close title="Zamknij">✕</button>${html}</div>`;
+  document.body.appendChild(wrap);
+  wrap.addEventListener('mousedown', e => { if (e.target === wrap) closeModal(); });
+  wrap.addEventListener('click', e => { if (e.target.closest('[data-close]')) closeModal(); });
+  if (onMount) onMount(wrap.querySelector('.modal'));
+  const first = wrap.querySelector('input, textarea');
+  if (first) setTimeout(() => first.focus(), 30);
+  return wrap.querySelector('.modal');
+}
+function closeModal() { const m = $('modal'); if (m) m.remove(); }
+function confirmModal({ title, text, confirm = 'Potwierdź', danger = false }) {
+  return new Promise(resolve => {
+    openModal(`<h3 class="modal-title">${esc(title)}</h3><p class="modal-text">${text}</p>
+      <div class="modal-actions"><button class="btn" data-close>Anuluj</button><button class="btn ${danger ? 'btn-danger-solid' : 'btn-primary'}" id="mConfirm">${esc(confirm)}</button></div>`,
+    { onMount: m => m.querySelector('#mConfirm').addEventListener('click', () => { closeModal(); resolve(true); }) });
+    const m = $('modal');
+    m.addEventListener('click', e => { if (e.target.closest('[data-close]')) resolve(false); });
+  });
+}
+
+/* ---------- Shared lists: panel, invite and manage dialogs ---------- */
+const AVATAR_COLORS = ['#16a34a', '#0ea5e9', '#f59e0b', '#8b5cf6', '#ec4899', '#14b8a6', '#ef4444', '#6366f1'];
+function avatarHtml(m, size = 30) {
+  const label = (m.name || m.email || '?').trim();
+  const initials = label.split(/[\s@.]+/).filter(Boolean).slice(0, 2).map(s => s[0].toUpperCase()).join('');
+  const color = AVATAR_COLORS[[...m.email].reduce((a, c) => a + c.charCodeAt(0), 0) % AVATAR_COLORS.length];
+  const inner = m.photo ? `<img src="${esc(m.photo)}" alt="" referrerpolicy="no-referrer">` : esc(initials);
+  return `<span class="avatar-c ${m.joined ? '' : 'pending'}" style="width:${size}px;height:${size}px;background:${m.photo ? 'transparent' : color}" title="${esc(m.name || m.email)}">${inner}${m.owner ? '<span class="crown" title="Administrator">★</span>' : ''}</span>`;
+}
+
+function inviteMessage(list, email) {
+  return `Cześć! Dodałem Cię do naszej wspólnej listy mieszkań „${list.name}” w WynajemRadar.\n\n` +
+    `Wejdź na https://wynajemradar.pl i zaloguj się przez Google adresem ${email}. Lista pojawi się sama w panelu „Wspólne listy”, a nasze ogłoszenia w zakładce „Wspólna lista”.`;
+}
+
 function renderListsPanel() {
   const L = window.lists; const body = $('listsBody');
   if (!L || !body) return;
   const st = L.state;
-  const active = st.lists.find(l => l.id === st.activeId);
+  const active = L.active();
   const signedOut = st.mode === 'local';
-  const myEmail = (st.user && st.user.email || '').toLowerCase();
-  const isOwnerAlone = active && active.ownerUid === (st.user ? st.user.uid : 'me') && (active.memberEmails || []).length <= 1;
-  body.innerHTML = `
-    ${st.lists.length ? `<select id="listSelect" class="select" style="width:100%;margin-bottom:8px">${st.lists.map(l => `<option value="${esc(l.id)}" ${l.id === st.activeId ? 'selected' : ''}>${esc(l.name)}</option>`).join('')}</select>` : '<p class="help" style="margin:0 0 8px">Nie masz jeszcze żadnej listy.</p>'}
-    ${active ? `<div class="members">${(active.memberEmails || []).map(e => `<span class="member" title="${esc(e)}">${esc(e === 'ty' ? 'Ty' : e)}${!signedOut && e !== myEmail ? ` <button class="icon-btn rm" data-e="${esc(e)}" title="Usuń z listy">✕</button>` : ''}</span>`).join('')}</div>
-      ${signedOut ? '<p class="help">Zaloguj się przez Google (prawy górny róg), aby dzielić listę z innymi osobami.</p>' : `<div class="group-add"><input id="inviteEmail" class="input" placeholder="E-mail konta Google do dodania"><button id="inviteBtn" class="btn btn-ghost btn-sm">Dodaj</button></div>`}
-      <div class="fb-actions" style="margin-top:8px"><button id="renameList" class="btn btn-ghost btn-sm">Zmień nazwę</button><button id="leaveList" class="btn btn-ghost btn-sm">${isOwnerAlone ? 'Usuń listę' : 'Opuść listę'}</button></div>` : ''}
-    <div class="group-add" style="margin-top:8px"><input id="newListName" class="input" placeholder="Nazwa nowej listy, np. Nasze mieszkanie"><button id="newListBtn" class="btn btn-ghost btn-sm">Utwórz</button></div>`;
+  const tab = $('tabList');
+  if (tab) tab.firstChild.textContent = active ? (active.name.length > 16 ? active.name.slice(0, 15) + '…' : active.name) + ' ' : 'Wspólna lista ';
+
+  if (!st.lists.length) {
+    body.innerHTML = `<div class="lists-empty">
+      <div class="lists-empty-ico">👥</div>
+      <b>Szukacie mieszkania razem?</b>
+      <p>Załóż wspólną listę i zaproś partnera, rodzinę albo współlokatorów. Dodajecie oferty, głosujecie i piszecie notatki w jednym miejscu.</p>
+      <button class="btn btn-primary btn-block" id="newListBtn">Utwórz wspólną listę</button>
+      ${signedOut ? '<p class="help">Do zapraszania innych osób potrzebne jest logowanie przez Google.</p>' : ''}
+    </div>`;
+  } else {
+    const members = L.members(active.id);
+    const owner = L.isOwner(active.id);
+    const joined = members.filter(m => m.joined).length;
+    body.innerHTML = `
+      ${st.lists.length > 1 ? `<select id="listSelect" class="select list-select">${st.lists.map(l => `<option value="${esc(l.id)}" ${l.id === st.activeId ? 'selected' : ''}>${esc(l.name)}</option>`).join('')}</select>` : ''}
+      <div class="list-card">
+        <div class="list-card-head">
+          <div><div class="list-name">${esc(active.name)}</div>
+          <div class="list-sub">${members.length} ${members.length === 1 ? 'osoba' : members.length < 5 ? 'osoby' : 'osób'} · ${Object.keys(st.items).length} ogłoszeń</div></div>
+          <span class="role-chip ${owner ? 'admin' : ''}">${owner ? '★ Administrator' : 'Członek'}</span>
+        </div>
+        <div class="avatar-row">${members.slice(0, 7).map(m => avatarHtml(m)).join('')}${members.length > 7 ? `<span class="avatar-more">+${members.length - 7}</span>` : ''}</div>
+        ${members.length - joined > 0 ? `<p class="help">${members.length - joined} ${members.length - joined === 1 ? 'osoba jeszcze się nie zalogowała' : 'osoby jeszcze się nie zalogowały'}</p>` : ''}
+        <div class="list-card-actions">
+          ${owner ? `<button class="btn btn-primary btn-sm" id="inviteOpen">＋ Zaproś osobę</button>` : ''}
+          <button class="btn btn-sm" id="manageOpen">${owner ? 'Zarządzaj' : 'Osoby na liście'}</button>
+        </div>
+        ${!owner ? `<p class="help">Nowe osoby dodaje administrator: <b>${esc(L.ownerName(active.id))}</b>.</p>` : ''}
+      </div>
+      <button class="link-btn" id="newListBtn">＋ Nowa lista</button>`;
+  }
+
   const on = (id, ev, fn) => { const el = $(id); if (el) el.addEventListener(ev, fn); };
   on('listSelect', 'change', e => L.setActive(e.target.value));
-  on('newListBtn', 'click', async () => { const n = $('newListName').value.trim(); if (!n) return; try { await L.create(n); toast('Utworzono listę „' + n + '”'); } catch (e) { toast(e.message); } });
-  on('newListName', 'keydown', e => { if (e.key === 'Enter') $('newListBtn').click(); });
-  on('inviteBtn', 'click', async () => { const em = $('inviteEmail').value.trim(); if (!em) return; try { await L.invite(st.activeId, em); toast('Dodano ' + em + '. Po zalogowaniu zobaczy listę.'); } catch (e) { toast(e.message); } });
-  on('inviteEmail', 'keydown', e => { if (e.key === 'Enter') $('inviteBtn').click(); });
-  on('renameList', 'click', async () => { const n = prompt('Nowa nazwa listy', active.name); if (n && n.trim()) await L.rename(active.id, n.trim()); });
-  on('leaveList', 'click', async () => { if (confirm('Na pewno?')) { await L.leave(active.id); toast('Gotowe'); } });
-  body.querySelectorAll('.member .rm').forEach(b => b.addEventListener('click', async () => { if (confirm('Usunąć ' + b.dataset.e + ' z listy?')) await L.removeMember(st.activeId, b.dataset.e); }));
+  on('newListBtn', 'click', openCreateList);
+  on('inviteOpen', 'click', () => openInvite(active.id));
+  on('manageOpen', 'click', () => openManage(active.id));
+}
+
+function openCreateList() {
+  openModal(`<h3 class="modal-title">Nowa wspólna lista</h3>
+    <p class="modal-text">Nadaj nazwę, którą rozpoznają wszyscy. Będziesz administratorem tej listy: tylko Ty zapraszasz i usuwasz osoby.</p>
+    <label class="field"><span>Nazwa listy</span><input id="mListName" class="input" maxlength="60" placeholder="np. Nasze mieszkanie, Kraków 2 pokoje"></label>
+    <div class="chip-suggest">${['Nasze mieszkanie', 'Dla nas dwojga', 'Mieszkanie na studia'].map(s => `<button class="sugg" data-s="${esc(s)}">${esc(s)}</button>`).join('')}</div>
+    <div class="modal-actions"><button class="btn" data-close>Anuluj</button><button class="btn btn-primary" id="mCreate">Utwórz listę</button></div>`, {
+    onMount: m => {
+      const input = m.querySelector('#mListName');
+      m.querySelectorAll('.sugg').forEach(b => b.addEventListener('click', () => { input.value = b.dataset.s; input.focus(); }));
+      const go = async () => {
+        const n = input.value.trim();
+        if (!n) { input.focus(); input.classList.add('shake'); setTimeout(() => input.classList.remove('shake'), 400); return; }
+        try {
+          const id = await window.lists.create(n);
+          toast('Utworzono listę „' + n + '”');
+          if (window.lists.state.mode === 'cloud') openInvite(id, { justCreated: true }); else closeModal();
+        } catch (e) { toast(e.message); }
+      };
+      m.querySelector('#mCreate').addEventListener('click', go);
+      input.addEventListener('keydown', e => { if (e.key === 'Enter') go(); });
+    }
+  });
+}
+
+function openInvite(listId, { justCreated = false } = {}) {
+  const L = window.lists;
+  const list = L.state.lists.find(l => l.id === listId) || { id: listId, name: '' };
+  openModal(`
+    <div class="invite-step" id="stepForm">
+      <h3 class="modal-title">${justCreated ? 'Lista gotowa! Kogo zapraszasz?' : 'Zaproś do listy „' + esc(list.name) + '”'}</h3>
+      <p class="modal-text">Wpisz adres e-mail, którym ta osoba loguje się do Google, najczęściej Gmail. Nie musi mieć jeszcze konta w WynajemRadar.</p>
+      <label class="field"><span>E-mail osoby</span><input id="mEmail" class="input" type="email" autocomplete="email" placeholder="np. anna.kowalska@gmail.com"></label>
+      <p class="field-error" id="mErr" hidden></p>
+      <div class="how">
+        <div><span>1</span>Dodajesz adres</div>
+        <div><span>2</span>Wysyłasz wiadomość</div>
+        <div><span>3</span>Ona loguje się tym Google</div>
+      </div>
+      <div class="modal-actions">${justCreated ? '<button class="btn" data-close>Później</button>' : '<button class="btn" data-close>Anuluj</button>'}<button class="btn btn-primary" id="mInvite">Dodaj do listy</button></div>
+    </div>
+    <div class="invite-step" id="stepDone" hidden>
+      <div class="done-ico">✓</div>
+      <h3 class="modal-title center">Dodano <span id="mWho"></span></h3>
+      <p class="modal-text center">Lista pojawi się u tej osoby, gdy tylko zaloguje się przez Google. Wyślij jej krótką wiadomość, żeby wiedziała, gdzie wejść:</p>
+      <textarea id="mMsg" class="input msg" rows="5" readonly></textarea>
+      <div class="share-row">
+        <button class="btn btn-primary" id="mCopy">Kopiuj wiadomość</button>
+        <button class="btn" id="mShare" hidden>Udostępnij…</button>
+        <a class="btn" id="mMail" target="_blank" rel="noopener">E-mail</a>
+      </div>
+      <div class="modal-actions"><button class="btn" id="mAnother">Zaproś kolejną osobę</button><button class="btn btn-primary" data-close>Gotowe</button></div>
+    </div>`, {
+    onMount: m => {
+      const input = m.querySelector('#mEmail'); const err = m.querySelector('#mErr');
+      const showErr = t => { err.textContent = t; err.hidden = false; input.classList.add('invalid'); };
+      input.addEventListener('input', () => { err.hidden = true; input.classList.remove('invalid'); });
+      const go = async () => {
+        const btn = m.querySelector('#mInvite'); btn.disabled = true;
+        try {
+          const email = await L.invite(listId, input.value);
+          const fresh = L.state.lists.find(l => l.id === listId) || list;
+          const msg = inviteMessage(fresh, email);
+          m.querySelector('#stepForm').hidden = true; m.querySelector('#stepDone').hidden = false;
+          m.querySelector('#mWho').textContent = email;
+          m.querySelector('#mMsg').value = msg;
+          m.querySelector('#mMail').href = `mailto:${encodeURIComponent(email)}?subject=${encodeURIComponent('Wspólna lista mieszkań: ' + fresh.name)}&body=${encodeURIComponent(msg)}`;
+          if (navigator.share) { const sh = m.querySelector('#mShare'); sh.hidden = false; sh.onclick = () => navigator.share({ title: 'WynajemRadar', text: msg }).catch(() => {}); }
+          m.querySelector('#mCopy').onclick = async () => { try { await navigator.clipboard.writeText(msg); } catch (_) { m.querySelector('#mMsg').select(); document.execCommand('copy'); } toast('Skopiowano. Wklej w Messengerze, WhatsAppie lub SMS-ie.'); };
+        } catch (e) { showErr(e.message); } finally { btn.disabled = false; }
+      };
+      m.querySelector('#mInvite').addEventListener('click', go);
+      input.addEventListener('keydown', e => { if (e.key === 'Enter') go(); });
+      m.querySelector('#mAnother').addEventListener('click', () => { m.querySelector('#stepDone').hidden = true; m.querySelector('#stepForm').hidden = false; input.value = ''; input.focus(); });
+    }
+  });
+}
+
+function openManage(listId) {
+  const L = window.lists;
+  const render = () => {
+    const list = L.state.lists.find(l => l.id === listId);
+    if (!list) { closeModal(); return; }
+    const owner = L.isOwner(listId);
+    const members = L.members(listId);
+    const m = $('modal') ? $('modal').querySelector('.modal') : null;
+    const html = `
+      <h3 class="modal-title">${owner ? 'Zarządzaj listą' : esc(list.name)}</h3>
+      ${owner ? `<label class="field"><span>Nazwa listy</span><div class="inline-save"><input id="mName" class="input" maxlength="60" value="${esc(list.name)}"><button class="btn" id="mRename">Zapisz</button></div></label>` : ''}
+      <div class="member-head"><span>Osoby na liście (${members.length}/${L.MAX_MEMBERS})</span>${owner ? '<button class="link-btn" id="mInviteMore">＋ Zaproś osobę</button>' : ''}</div>
+      <ul class="member-list">
+        ${members.map(p => `<li>
+          ${avatarHtml(p, 36)}
+          <div class="mi"><b>${esc(p.name || p.email)}${p.me ? ' <span class="you">(Ty)</span>' : ''}</b><small>${p.name ? esc(p.email) : ''}</small></div>
+          ${p.owner ? '<span class="role-chip admin">★ Administrator</span>' : p.joined ? '<span class="role-chip">Członek</span>' : '<span class="role-chip pending">Czeka na zalogowanie</span>'}
+          ${owner && !p.owner ? `<button class="icon-btn rm" data-e="${esc(p.email)}" title="Usuń z listy">Usuń</button>` : ''}
+        </li>`).join('')}
+      </ul>
+      <p class="help">${owner ? 'Jako administrator tylko Ty dodajesz i usuwasz osoby. Nikt nie może usunąć Ciebie z listy.' : `Osoby dodaje i usuwa administrator: <b>${esc(L.ownerName(listId))}</b>. Ty możesz dodawać ogłoszenia, głosować i pisać notatki.`}</p>
+      <div class="modal-actions split">
+        ${owner ? '<button class="btn btn-danger" id="mDelete">Usuń listę</button>' : '<button class="btn btn-danger" id="mLeave">Opuść listę</button>'}
+        <button class="btn btn-primary" data-close>Zamknij</button>
+      </div>`;
+    if (m) { m.innerHTML = `<button class="modal-x icon-btn" data-close title="Zamknij">✕</button>${html}`; bind(m); } else bind(openModal(html, { wide: true }));
+  };
+  const bind = m => {
+    const on = (sel, fn) => { const el = m.querySelector(sel); if (el) el.addEventListener('click', fn); };
+    on('#mRename', async () => { const n = m.querySelector('#mName').value.trim(); if (!n) return; try { await L.rename(listId, n); toast('Zmieniono nazwę'); } catch (e) { toast(e.message); } });
+    on('#mInviteMore', () => openInvite(listId));
+    m.querySelectorAll('.rm').forEach(b => b.addEventListener('click', async () => {
+      const ok = await confirmModal({ title: 'Usunąć osobę z listy?', text: `<b>${esc(b.dataset.e)}</b> straci dostęp do listy. Dodane przez nią ogłoszenia i notatki zostaną.`, confirm: 'Usuń', danger: true });
+      if (!ok) return openManage(listId);
+      try { await L.removeMember(listId, b.dataset.e); toast('Usunięto ' + b.dataset.e); } catch (e) { toast(e.message); }
+      openManage(listId);
+    }));
+    on('#mDelete', async () => {
+      const list = L.state.lists.find(l => l.id === listId);
+      const ok = await confirmModal({ title: 'Usunąć listę dla wszystkich?', text: `Lista <b>„${esc(list.name)}”</b> zniknie u wszystkich osób razem z ogłoszeniami, głosami i notatkami. Tego nie da się cofnąć.`, confirm: 'Usuń listę', danger: true });
+      if (!ok) return openManage(listId);
+      try { await L.deleteList(listId); toast('Lista usunięta'); } catch (e) { toast(e.message); }
+    });
+    on('#mLeave', async () => {
+      const ok = await confirmModal({ title: 'Opuścić listę?', text: 'Stracisz dostęp do tej listy. Administrator może Cię dodać ponownie.', confirm: 'Opuść', danger: true });
+      if (!ok) return openManage(listId);
+      try { await L.leave(listId); toast('Opuszczono listę'); } catch (e) { toast(e.message); }
+    });
+  };
+  render();
+  const onChange = () => { if (!$('modal') || !$('modal').querySelector('.member-list')) return document.removeEventListener('lists:changed', onChange); if (!document.activeElement || document.activeElement.id !== 'mName') render(); };
+  document.addEventListener('lists:changed', onChange);
 }
 
 async function toggleOnList(id) {
@@ -547,7 +741,7 @@ async function init() {
     const th = e.target.closest('.gallery-strip img'); if (th) { gallery.idx = +th.dataset.k; openDrawer(state.selectedId, { keepIndex: true }); }
   });
   document.addEventListener('keydown', e => {
-    if (e.key === 'Escape') closeDrawer();
+    if (e.key === 'Escape') { if ($('modal')) return closeModal(); closeDrawer(); }
     if (state.selectedId && !$('drawer').hidden && e.target.tagName !== 'INPUT') {
       if (e.key === 'ArrowLeft') galleryStep(-1);
       if (e.key === 'ArrowRight') galleryStep(1);

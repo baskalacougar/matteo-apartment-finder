@@ -1,0 +1,20 @@
+{
+  "name": "wynajemradar-tests",
+  "version": "1.0.0",
+  "description": "Firestore rules tests + end-to-end test of shared lists and the admin panel on Firebase emulators (needs Java 21+).",
+  "main": "index.js",
+  "scripts": {
+    "test:rules": "node -e \"require('fs').copyFileSync('../firestore.rules','firestore.rules')\" && firebase emulators:exec --only firestore --project wynajemradar-test \"node rules.test.js\"",
+    "test:e2e": "node -e \"require('fs').copyFileSync('../firestore.rules','firestore.rules')\" && firebase emulators:exec --only auth,firestore --project wynajemradar-test \"node e2e.test.js\""
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "dependencies": {
+    "@firebase/rules-unit-testing": "^5.0.2",
+    "firebase": "^12.19.0",
+    "firebase-tools": "^15.31.0"
+  },
+  "private": true
+}

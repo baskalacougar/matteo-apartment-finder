@@ -6,23 +6,33 @@
  * Firestore layout:  users/{uid}  ->  { email, flags: {listingId: {fav, hidden}}, filters, updatedAt }
  */
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/11.1.0/firebase-app.js';
-import { getAuth, GoogleAuthProvider, signInWithPopup, signInWithRedirect, getRedirectResult, signOut, onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/11.1.0/firebase-auth.js';
-import { getFirestore, doc, getDoc, setDoc, serverTimestamp } from 'https://www.gstatic.com/firebasejs/11.1.0/firebase-firestore.js';
+import { getAuth, GoogleAuthProvider, signInWithPopup, signInWithRedirect, getRedirectResult, signOut, onAuthStateChanged, connectAuthEmulator, signInWithCredential } from 'https://www.gstatic.com/firebasejs/11.1.0/firebase-auth.js';
+import { getFirestore, doc, getDoc, setDoc, serverTimestamp, increment, connectFirestoreEmulator } from 'https://www.gstatic.com/firebasejs/11.1.0/firebase-firestore.js';
+
+// Local testing only: http://localhost:5174/?emu talks to the Firebase emulators, never to production.
+const EMULATOR = location.hostname === 'localhost' && new URLSearchParams(location.search).has('emu');
 
 const cfg = window.FIREBASE_CONFIG;
 const box = document.getElementById('authBox');
 if (!cfg || !box) {
   if (box) box.hidden = true;
 } else {
-  const app = initializeApp(cfg);
+  const app = initializeApp(EMULATOR ? { ...cfg, projectId: 'wynajemradar-test' } : cfg);
   const auth = getAuth(app);
   const db = getFirestore(app);
+  if (EMULATOR) {
+    connectAuthEmulator(auth, 'http://127.0.0.1:9099', { disableWarnings: true });
+    connectFirestoreEmulator(db, '127.0.0.1', 8080);
+    // Test hook: sign in as any Google account without a popup (emulator accepts unsigned tokens).
+    window.devSignIn = (email, name) => signInWithCredential(auth, GoogleAuthProvider.credential(JSON.stringify({ sub: 'g-' + email, email, email_verified: true, name })));
+    window.devSignOut = () => signOut(auth);
+  }
   const provider = new GoogleAuthProvider();
   const signIn = async () => {
     try { await signInWithPopup(auth, provider); }
     catch (e) { if (/popup/i.test(e.code || '')) await signInWithRedirect(auth, provider); else alert('Logowanie nie powiodło się: ' + e.message); }
   };
-  window.fb = { app, auth, db, signIn };
+  window.fb = { app, auth, db, signIn, isSiteAdmin: () => !!(auth.currentUser && auth.currentUser.emailVerified && auth.currentUser.email.toLowerCase() === 'matteohoffman2@gmail.com') };
   let user = null;
   let saveTimer = null;
 
@@ -41,6 +51,14 @@ if (!cfg || !box) {
   async function pull() {
     const snap = await getDoc(doc(db, 'users', user.uid));
     const data = snap.exists() ? snap.data() : {};
+    // Profile + visit statistics for the site admin panel (one write per page load).
+    const profile = {
+      email: user.email, name: user.displayName || null, photo: user.photoURL || null,
+      lastSeenAt: serverTimestamp(), visits: increment(1),
+      device: /Mobi|Android|iPhone/i.test(navigator.userAgent) ? 'mobile' : 'desktop'
+    };
+    if (!data.createdAt) profile.createdAt = data.updatedAt || serverTimestamp();
+    await setDoc(doc(db, 'users', user.uid), profile, { merge: true }).catch(e => console.warn('profile save failed', e));
     // Merge: what is saved locally in this browser joins what the account already has.
     const merged = window.finder.mergeCloud({ flags: data.flags || {}, filters: data.filters || null });
     await push(merged, true);

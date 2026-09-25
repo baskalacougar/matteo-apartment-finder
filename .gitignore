@@ -1,3 +1,7 @@
 node_modules/
 *.log
-ui-lists.png
+ui-*.png
+e2e-*.png
+rules-test/node_modules/
+rules-test/firestore.rules
+rules-test/*.log

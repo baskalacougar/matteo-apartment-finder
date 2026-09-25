@@ -3,39 +3,48 @@
  * listings with notes and votes. Backed by Firestore when Firebase is configured; otherwise a
  * local single-user fallback (localStorage) so the UI works without an account.
  *
+ * Roles: the creator is the list's administrator (ownerUid / ownerEmail). Only the administrator
+ * can invite, remove people, rename or delete the list, and nobody can remove the administrator.
+ * Members can add listings, vote, write notes and leave. Enforced in firestore.rules as well.
+ *
  * Firestore layout:
- *   lists/{listId}            { name, ownerUid, memberEmails: [..], members: {uid: {email,name}}, createdAt }
+ *   lists/{listId}            { name, ownerUid, ownerEmail, memberEmails: [..], members: {uid: {email,name,photo}}, createdAt }
  *   lists/{listId}/items/{id} { listing snapshot, addedBy: {uid,name}, addedAt, note, votes: {uid: 1|-1} }
- * Membership is by e-mail (lower-cased), so you can add someone before they ever signed in.
+ * Membership is by e-mail (lower-cased), so you can add someone before they ever signed in;
+ * `members` holds everyone who has already opened the list (used for names and "joined" status).
  */
-import { getFirestore, collection, doc, addDoc, setDoc, updateDoc, deleteDoc, onSnapshot, query, where, serverTimestamp, arrayUnion, arrayRemove, deleteField } from 'https://www.gstatic.com/firebasejs/11.1.0/firebase-firestore.js';
+import { collection, doc, addDoc, setDoc, updateDoc, deleteDoc, onSnapshot, query, where, getDocs, writeBatch, serverTimestamp, arrayUnion, arrayRemove, deleteField } from 'https://www.gstatic.com/firebasejs/11.1.0/firebase-firestore.js';
 
+const MAX_MEMBERS = 30;
 const state = { lists: [], activeId: null, items: {}, user: null, mode: 'local' };
 const emit = () => document.dispatchEvent(new CustomEvent('lists:changed'));
 const norm = e => String(e || '').trim().toLowerCase();
+const EMAIL_RE = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
 const snapshotOf = l => ({
   id: l.id, source: l.source, url: l.url, title: l.title, price: l.price ?? null, area: l.area ?? null, rooms: l.rooms ?? null,
   district: l.district ?? null, type: l.type ?? null, image: (l.images && l.images[0]) || l.image || null, postedAt: l.postedAt || null
 });
 
-/* ---------------- local fallback ---------------- */
+/* ---------------- local fallback (no account) ---------------- */
 const LS_KEY = 'sharedLists';
 function localLoad() { try { return JSON.parse(localStorage.getItem(LS_KEY)) || { lists: [], activeId: null }; } catch (_) { return { lists: [], activeId: null }; } }
 function localSave(d) { try { localStorage.setItem(LS_KEY, JSON.stringify(d)); } catch (_) { /* ignore */ } }
 function localRefresh() {
   const d = localLoad();
-  state.lists = d.lists.map(l => ({ id: l.id, name: l.name, memberEmails: ['ty'], members: { me: { name: 'Ty' } }, ownerUid: 'me' }));
+  state.lists = d.lists.map(l => ({ id: l.id, name: l.name, ownerUid: 'me', ownerEmail: 'ty', memberEmails: ['ty'], members: { me: { email: 'ty', name: 'Ty' } } }));
   state.activeId = d.activeId && d.lists.find(l => l.id === d.activeId) ? d.activeId : (d.lists[0] ? d.lists[0].id : null);
   const active = d.lists.find(l => l.id === state.activeId);
   state.items = active ? active.items || {} : {};
   emit();
 }
+const needAccount = () => { throw new Error('Zaloguj się przez Google, aby dzielić listę z innymi osobami.'); };
 const localApi = {
   async create(name) { const d = localLoad(); const id = 'l' + Date.now().toString(36); d.lists.push({ id, name, items: {} }); d.activeId = id; localSave(d); localRefresh(); return id; },
   async rename(id, name) { const d = localLoad(); const l = d.lists.find(x => x.id === id); if (l) l.name = name; localSave(d); localRefresh(); },
-  async invite() { throw new Error('Zaloguj się przez Google, aby dodać inne osoby do listy.'); },
-  async removeMember() { /* n/a locally */ },
-  async leave(id) { const d = localLoad(); d.lists = d.lists.filter(x => x.id !== id); if (d.activeId === id) d.activeId = null; localSave(d); localRefresh(); },
+  invite: needAccount,
+  removeMember: needAccount,
+  leave: needAccount,
+  async deleteList(id) { const d = localLoad(); d.lists = d.lists.filter(x => x.id !== id); if (d.activeId === id) d.activeId = null; localSave(d); localRefresh(); },
   async setActive(id) { const d = localLoad(); d.activeId = id; localSave(d); localRefresh(); },
   async add(listing) { const d = localLoad(); const l = d.lists.find(x => x.id === state.activeId); if (!l) throw new Error('Najpierw utwórz listę.'); l.items = l.items || {}; l.items[listing.id] = { ...snapshotOf(listing), addedBy: { uid: 'me', name: 'Ty' }, addedAt: new Date().toISOString(), note: '', votes: {} }; localSave(d); localRefresh(); },
   async remove(listingId) { const d = localLoad(); const l = d.lists.find(x => x.id === state.activeId); if (l && l.items) delete l.items[listingId]; localSave(d); localRefresh(); },
@@ -44,10 +53,19 @@ const localApi = {
 };
 
 /* ---------------- Firestore backend ---------------- */
-let db = null, unsubLists = null, unsubItems = null;
-function stopItems() { if (unsubItems) { unsubItems(); unsubItems = null; } }
+let db = null, unsubs = [], unsubItems = null, itemsFor = null;
+const byQuery = { member: new Map(), owner: new Map() };
+const myUid = () => (state.user ? state.user.uid : 'me');
+const myEmail = () => (state.user ? norm(state.user.email) : 'ty');
+const me = () => ({ uid: state.user.uid, name: state.user.displayName || state.user.email });
+const listById = id => state.lists.find(l => l.id === id);
+const isOwner = l => !!l && l.ownerUid === myUid();
+
+function stopItems() { if (unsubItems) { unsubItems(); unsubItems = null; } itemsFor = null; }
 function watchItems(listId) {
+  if (itemsFor === listId && (unsubItems || !listId)) return;   // already watching this list
   stopItems();
+  itemsFor = listId;
   state.items = {};
   if (!listId) return emit();
   unsubItems = onSnapshot(collection(db, 'lists', listId, 'items'), snap => {
@@ -57,45 +75,94 @@ function watchItems(listId) {
     emit();
   }, err => console.warn('items watch failed', err));
 }
-function watchLists(user) {
-  if (unsubLists) { unsubLists(); unsubLists = null; }
-  const q = query(collection(db, 'lists'), where('memberEmails', 'array-contains', norm(user.email)));
-  unsubLists = onSnapshot(q, snap => {
-    state.lists = [];
-    snap.forEach(d => state.lists.push({ id: d.id, ...d.data() }));
-    state.lists.sort((a, b) => (a.name || '').localeCompare(b.name || ''));
-    const remembered = localStorage.getItem('activeListId');
-    if (!state.lists.find(l => l.id === state.activeId)) state.activeId = state.lists.find(l => l.id === remembered) ? remembered : (state.lists[0] ? state.lists[0].id : null);
-    // Register this account in the members map (name shown next to notes and votes).
-    for (const l of state.lists) {
-      if (!l.members || !l.members[user.uid]) updateDoc(doc(db, 'lists', l.id), { [`members.${user.uid}`]: { email: norm(user.email), name: user.displayName || user.email } }).catch(() => {});
-    }
-    watchItems(state.activeId);
-    emit();
-  }, err => console.warn('lists watch failed', err));
+
+function selfHeal(l) {
+  const u = state.user;
+  const patch = {};
+  if (isOwner(l)) {
+    // Older lists had no ownerEmail; the administrator must always stay a member.
+    if (l.ownerEmail !== myEmail()) patch.ownerEmail = myEmail();
+    if (!(l.memberEmails || []).includes(myEmail())) patch.memberEmails = arrayUnion(myEmail());
+  }
+  // Everyone registers their display name once (shown next to votes and notes, and as "joined").
+  const mine = l.members && l.members[u.uid];
+  if (!mine || mine.name !== (u.displayName || u.email) || (u.photoURL && mine.photo !== u.photoURL)) {
+    patch[`members.${u.uid}`] = { email: myEmail(), name: u.displayName || u.email, photo: u.photoURL || null };
+  }
+  if (Object.keys(patch).length) updateDoc(doc(db, 'lists', l.id), patch).catch(err => console.warn('list self-heal failed', err));
 }
-const me = () => ({ uid: state.user.uid, name: state.user.displayName || state.user.email });
+
+function recompute() {
+  const merged = new Map([...byQuery.member, ...byQuery.owner]);
+  state.lists = [...merged.values()].sort((a, b) => (a.name || '').localeCompare(b.name || '', 'pl'));
+  const remembered = localStorage.getItem('activeListId');
+  if (!state.lists.find(l => l.id === state.activeId)) {
+    state.activeId = state.lists.find(l => l.id === remembered) ? remembered : (state.lists[0] ? state.lists[0].id : null);
+  }
+  state.lists.forEach(selfHeal);
+  watchItems(state.activeId);
+  emit();
+}
+
+function watchLists(user) {
+  unsubs.forEach(u => u()); unsubs = [];
+  byQuery.member.clear(); byQuery.owner.clear();
+  const sub = (key, q) => unsubs.push(onSnapshot(q, snap => {
+    byQuery[key] = new Map();
+    snap.forEach(d => byQuery[key].set(d.id, { id: d.id, ...d.data() }));
+    recompute();
+  }, err => console.warn(`lists watch (${key}) failed`, err)));
+  sub('member', query(collection(db, 'lists'), where('memberEmails', 'array-contains', norm(user.email))));
+  sub('owner', query(collection(db, 'lists'), where('ownerUid', '==', user.uid)));
+}
+
+const requireOwner = id => { const l = listById(id); if (!isOwner(l)) throw new Error('Tylko administrator listy może to zrobić.'); return l; };
+
 const cloudApi = {
   async create(name) {
-    const ref = await addDoc(collection(db, 'lists'), { name, ownerUid: state.user.uid, memberEmails: [norm(state.user.email)], members: { [state.user.uid]: { email: norm(state.user.email), name: me().name } }, createdAt: serverTimestamp() });
+    const u = state.user;
+    const ref = await addDoc(collection(db, 'lists'), {
+      name, ownerUid: u.uid, ownerEmail: myEmail(), memberEmails: [myEmail()],
+      members: { [u.uid]: { email: myEmail(), name: me().name, photo: u.photoURL || null } }, createdAt: serverTimestamp()
+    });
     state.activeId = ref.id; localStorage.setItem('activeListId', ref.id);
     return ref.id;
   },
-  async rename(id, name) { await updateDoc(doc(db, 'lists', id), { name }); },
+  async rename(id, name) { requireOwner(id); await updateDoc(doc(db, 'lists', id), { name }); },
   async invite(id, email) {
+    const l = requireOwner(id);
     const e = norm(email);
-    if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(e)) throw new Error('Podaj poprawny adres e-mail konta Google.');
+    if (!EMAIL_RE.test(e)) throw new Error('To nie wygląda na adres e-mail. Wpisz adres konta Google, np. anna@gmail.com');
+    if (e === myEmail()) throw new Error('To Twój adres, jesteś już na liście.');
+    if ((l.memberEmails || []).includes(e)) throw new Error('Ta osoba jest już na liście.');
+    if ((l.memberEmails || []).length >= MAX_MEMBERS) throw new Error(`Lista może mieć maksymalnie ${MAX_MEMBERS} osób.`);
     await updateDoc(doc(db, 'lists', id), { memberEmails: arrayUnion(e) });
+    return e;
   },
   async removeMember(id, email) {
-    const l = state.lists.find(x => x.id === id);
-    const uid = l && l.members ? Object.keys(l.members).find(u => l.members[u].email === norm(email)) : null;
-    await updateDoc(doc(db, 'lists', id), { memberEmails: arrayRemove(norm(email)), ...(uid ? { [`members.${uid}`]: deleteField() } : {}) });
+    const l = requireOwner(id);
+    const e = norm(email);
+    if (e === norm(l.ownerEmail) || e === myEmail()) throw new Error('Administratora nie można usunąć z listy.');
+    const uid = l.members ? Object.keys(l.members).find(u => norm(l.members[u].email) === e) : null;
+    await updateDoc(doc(db, 'lists', id), { memberEmails: arrayRemove(e), ...(uid ? { [`members.${uid}`]: deleteField() } : {}) });
   },
   async leave(id) {
-    const l = state.lists.find(x => x.id === id);
-    if (l && l.ownerUid === state.user.uid && (l.memberEmails || []).length <= 1) { await deleteDoc(doc(db, 'lists', id)); return; }
-    await cloudApi.removeMember(id, state.user.email);
+    const l = listById(id);
+    if (isOwner(l)) throw new Error('Jesteś administratorem tej listy. Możesz ją usunąć dla wszystkich.');
+    await updateDoc(doc(db, 'lists', id), { memberEmails: arrayRemove(myEmail()), [`members.${state.user.uid}`]: deleteField() });
+    if (state.activeId === id) { state.activeId = null; localStorage.removeItem('activeListId'); }
+  },
+  async deleteList(id) {
+    requireOwner(id);
+    // Firestore does not cascade: remove the listings first, then the list itself.
+    const items = await getDocs(collection(db, 'lists', id, 'items'));
+    for (let i = 0; i < items.docs.length; i += 400) {
+      const batch = writeBatch(db);
+      items.docs.slice(i, i + 400).forEach(d => batch.delete(d.ref));
+      await batch.commit();
+    }
+    await deleteDoc(doc(db, 'lists', id));
+    if (state.activeId === id) { state.activeId = null; localStorage.removeItem('activeListId'); }
   },
   async setActive(id) { state.activeId = id; localStorage.setItem('activeListId', id || ''); watchItems(id); emit(); },
   async add(listing) {
@@ -113,12 +180,33 @@ const cloudApi = {
 
 /* ---------------- public API ---------------- */
 let api = localApi;
+
+/** People on a list, administrator first; `joined` = has opened the list at least once. */
+function membersOf(id) {
+  const l = listById(id);
+  if (!l) return [];
+  const profiles = Object.values(l.members || {});
+  const ownerEmail = norm(l.ownerEmail) || (l.members && l.members[l.ownerUid] ? norm(l.members[l.ownerUid].email) : '');
+  const rows = (l.memberEmails || []).map(e => {
+    const p = profiles.find(x => norm(x.email) === norm(e));
+    return { email: e, name: p ? p.name : null, photo: p ? p.photo : null, joined: !!p, owner: norm(e) === ownerEmail, me: norm(e) === myEmail() };
+  });
+  return rows.sort((a, b) => (b.owner - a.owner) || (b.me - a.me) || a.email.localeCompare(b.email));
+}
+
 window.lists = {
   state,
+  MAX_MEMBERS,
   create: n => api.create(n), rename: (i, n) => api.rename(i, n), invite: (i, e) => api.invite(i, e), removeMember: (i, e) => api.removeMember(i, e),
-  leave: i => api.leave(i), setActive: i => api.setActive(i), add: l => api.add(l), remove: i => api.remove(i), setNote: (i, n) => api.setNote(i, n), vote: (i, v) => api.vote(i, v),
+  leave: i => api.leave(i), deleteList: i => api.deleteList(i), setActive: i => api.setActive(i),
+  add: l => api.add(l), remove: i => api.remove(i), setNote: (i, n) => api.setNote(i, n), vote: (i, v) => api.vote(i, v),
   has: id => !!state.items[id],
-  memberName: uid => { const l = state.lists.find(x => x.id === state.activeId); return (l && l.members && l.members[uid] && l.members[uid].name) || 'ktoś'; }
+  active: () => listById(state.activeId) || null,
+  isOwner: id => isOwner(listById(id)),
+  members: membersOf,
+  myEmail,
+  memberName: uid => { const l = listById(state.activeId); return (l && l.members && l.members[uid] && l.members[uid].name) || 'ktoś'; },
+  ownerName: id => { const o = membersOf(id).find(m => m.owner); return o ? (o.name || o.email) : 'administrator'; }
 };
 
 document.addEventListener('cloud:auth', e => {
@@ -127,7 +215,7 @@ document.addEventListener('cloud:auth', e => {
     db = window.fb.db; state.user = window.fb.auth.currentUser; state.mode = 'cloud'; api = cloudApi;
     watchLists(state.user);
   } else {
-    if (unsubLists) { unsubLists(); unsubLists = null; } stopItems();
+    unsubs.forEach(x => x()); unsubs = []; stopItems();
     state.user = null; state.mode = 'local'; api = localApi; localRefresh();
   }
 });
