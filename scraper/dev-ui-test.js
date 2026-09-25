@@ -17,9 +17,10 @@ const path = require('path');
   await page.waitForSelector('.card');
   const cards = await page.locator('.card').count();
 
-  await page.fill('#newListName', 'Nasze mieszkanie');
   await page.click('#newListBtn');
-  await page.waitForSelector('#listSelect');
+  await page.fill('#mListName', 'Nasze mieszkanie');
+  await page.click('#mCreate');
+  await page.waitForSelector('.list-card');
   await page.locator('.card .tolist').first().click();
   await page.waitForTimeout(300);
   const onCard = await page.locator('.card .tolist.on').count();
