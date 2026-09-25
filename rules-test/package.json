@@ -5,7 +5,9 @@
   "main": "index.js",
   "scripts": {
     "test:rules": "node -e \"require('fs').copyFileSync('../firestore.rules','firestore.rules')\" && firebase emulators:exec --only firestore --project wynajemradar-test \"node rules.test.js\"",
-    "test:e2e": "node -e \"require('fs').copyFileSync('../firestore.rules','firestore.rules')\" && firebase emulators:exec --only auth,firestore --project wynajemradar-test \"node e2e.test.js\""
+    "test:e2e": "node -e \"require('fs').copyFileSync('../firestore.rules','firestore.rules')\" && firebase emulators:exec --only auth,firestore --project wynajemradar-test \"node e2e.test.js\"",
+    "deploy:rules": "firebase deploy --only firestore:rules --project wynajemradar --config ../firebase.json --non-interactive",
+    "check:prod": "node prod-check.js"
   },
   "keywords": [],
   "author": "",
