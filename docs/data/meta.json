@@ -1,35 +1,35 @@
 {
-  "updatedAt": "2026-09-25T01:40:33.210Z",
-  "runId": "mugaj2bo",
-  "total": 1269,
-  "added": 36,
-  "seconds": 209,
+  "updatedAt": "2026-09-25T07:59:53.225Z",
+  "runId": "mugo43h1",
+  "total": 1380,
+  "added": 111,
+  "seconds": 152,
   "sources": {
     "olx": {
       "ok": true,
-      "count": 312,
-      "ms": 20612
+      "count": 311,
+      "ms": 19216
     },
     "otodom": {
       "ok": true,
       "count": 217,
-      "ms": 31420
+      "ms": 29429
     },
     "nol": {
       "ok": true,
       "count": 245,
-      "ms": 32693
+      "ms": 31879
     },
     "morizon": {
       "ok": true,
-      "count": 179,
-      "ms": 43429
+      "count": 178,
+      "ms": 42699
     }
   },
   "counts": {
-    "morizon": 178,
-    "olx": 634,
-    "otodom": 212,
-    "nol": 245
+    "morizon": 190,
+    "otodom": 218,
+    "nol": 246,
+    "olx": 726
   }
 }
