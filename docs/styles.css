@@ -164,6 +164,7 @@ input[type=number]::-webkit-inner-spin-button { opacity: .5; }
 .badge.src-otodom { color: #047857; }
 .badge.src-morizon { color: #c2410c; }
 .badge.src-nol { color: #b45309; }
+.badge.src-gratka { color: #7c3aed; }
 .badge.src-facebook { color: #1877f2; }
 .badge.new { background: var(--green); color: #fff; }
 .badge.type { background: rgba(255,255,255,0.92); }

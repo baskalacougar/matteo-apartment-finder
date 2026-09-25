@@ -33,8 +33,11 @@ const EXTRACT = `(() => {
   }).filter(x => x.href);
 })()`;
 
-function parseCard(c, type) {
-  const url = c.href.startsWith('http') ? c.href : 'https://www.morizon.pl' + c.href;
+const MORIZON_OPTS = { source: 'morizon', origin: 'https://www.morizon.pl', idRe: /mzn(\d+)/ };
+
+/** Morizon and Gratka share one listing platform, so one card parser serves both. */
+function parseCard(c, type, opts = MORIZON_OPTS) {
+  const url = c.href.startsWith('http') ? c.href : opts.origin + c.href;
   const priceLine = c.lines.find(l => /zł$/.test(l) && !/zł\/m/.test(l)) || '';
   const addrIdx = c.lines.findIndex(l => /Kraków/.test(l) && /,/.test(l));
   const address = addrIdx >= 0 ? c.lines[addrIdx] : '';
@@ -48,10 +51,10 @@ function parseCard(c, type) {
   const parts = address.split(',').map(s => s.trim());
   const district = parts.length >= 3 ? parts[parts.length - 3] : guessDistrict(address + ' ' + c.title);
   return {
-    id: 'morizon:' + (url.match(/mzn(\d+)/) || [])[1] || url,
-    source: 'morizon',
+    id: opts.source + ':' + ((url.match(opts.idRe) || [])[1] || url),
+    source: opts.source,
     url,
-    title: c.title.split('\n')[0] || c.lines[0] || 'Oferta Morizon',
+    title: c.title.split('\n')[0] || c.lines[0] || 'Oferta',
     price: toInt(priceLine),
     area: areaM ? toFloat(areaM[1]) : null,
     rooms: roomsM ? parseInt(roomsM[1], 10) : parseRooms(c.title),
@@ -93,4 +96,4 @@ async function run(filters, ctx) {
   return out;
 }
 
-module.exports = { id: 'morizon', name: 'Morizon', run };
+module.exports = { id: 'morizon', name: 'Morizon', run, parseCard, EXTRACT };

@@ -46,7 +46,7 @@ const MORIZON = `(async () => {
   const tile = document.querySelector('.details-gallery__item');
   if (tile) { try { tile.click(); } catch (e) {} await new Promise(r => setTimeout(r, 2500)); }
   const html = document.documentElement.innerHTML;
-  for (const t of html.match(/https:\\/\\/img1\\.staticmorizon\\.com\\.pl\\/thumb\\/[A-Za-z0-9=]+/g) || []) {
+  for (const t of html.match(/https:\\/\\/(?:img1\\.staticmorizon\\.com\\.pl|thumbs\\.cdngr\\.pl)\\/thumb\\/[A-Za-z0-9=]+/g) || []) {
     const b64 = t.split('/thumb/')[1];
     const orig = decode(b64);
     if (!orig || seen.has(orig)) continue;
@@ -108,7 +108,7 @@ async function extract(listing) {
       private: d.owner === 'private' ? true : d.owner ? false : listing.private
     };
   }
-  if (listing.source === 'morizon') {
+  if (listing.source === 'morizon' || listing.source === 'gratka') {
     await p.waitFor(`!!document.querySelector('script[type="application/ld+json"]')`, { timeout: 15000 });
     await p.eval('window.scrollTo(0, 600); true');
     await new Promise(r => setTimeout(r, 700));

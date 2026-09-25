@@ -6,6 +6,7 @@ const SOURCES = [
   { id: 'otodom', name: 'Otodom' },
   { id: 'morizon', name: 'Morizon' },
   { id: 'nol', name: 'Nieruchomosci-online' },
+  { id: 'gratka', name: 'Gratka' },
   { id: 'facebook', name: 'Facebook (grupy)' }
 ];
 const SOURCE_NAME = Object.fromEntries(SOURCES.map(s => [s.id, s.name.replace(' (grupy)', '')]));
@@ -134,7 +135,7 @@ function passesFilters(l, f, kwTerms) {
   if (!l.hidden && state.tab === 'hidden') return false;
   if (state.tab === 'fav' && !l.fav) return false;
   if (state.tab === 'new' && !isNew(l)) return false;
-  if (!(f.sources || {})[l.source]) return false;
+  if ((f.sources || {})[l.source] === false) return false;   // unknown (newly added) sources stay visible
   if (f.type !== 'all' && l.type && l.type !== f.type) return false;
   const pMin = num(f.priceMin), pMax = num(f.priceMax);
   if (l.price != null) { if (pMin && l.price < pMin) return false; if (pMax && l.price > pMax) return false; }

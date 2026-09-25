@@ -8,7 +8,7 @@ const fs = require('fs');
 const path = require('path');
 const { closeBrowser } = require('./lib/page');
 const details = require('./scrapers/details');
-const SCRAPERS = [require('./scrapers/olx'), require('./scrapers/otodom'), require('./scrapers/morizon'), require('./scrapers/nol')];
+const SCRAPERS = [require('./scrapers/olx'), require('./scrapers/otodom'), require('./scrapers/morizon'), require('./scrapers/nol'), require('./scrapers/gratka')];
 
 const DATA_DIR = path.join(__dirname, '..', 'docs', 'data');
 const LISTINGS = path.join(DATA_DIR, 'listings.json');
@@ -29,7 +29,11 @@ function merge(existing, fresh, runId) {
   const byId = new Map(existing.map(l => [l.id, l]));
   const byUrl = new Map(existing.map(l => [l.url, l]));
   let added = 0;
+  // Gratka and Morizon publish the same ads under different URLs: skip a Gratka ad that duplicates one we already have.
+  const fp = l => [String(l.title || '').toLowerCase().replace(/\s+/g, ' ').trim(), l.price || '', l.area || ''].join('|');
+  const seenFp = new Set([...existing, ...fresh].filter(l => l.source !== 'gratka').map(fp));
   for (const l of fresh) {
+    if (l.source === 'gratka' && !byId.has(l.id) && seenFp.has(fp(l))) continue;
     const prev = byId.get(l.id) || byUrl.get(l.url);
     if (prev) {
       const keep = prev.detailsFetched && !l.detailsFetched
@@ -118,7 +122,7 @@ function writeStaticPages(all) {
   const site = siteUrl();
   const docs = path.join(__dirname, '..', 'docs');
   const rows = all.filter(l => !l.seeker).map(l => `<li><a href="${escHtml(l.url)}" rel="nofollow noopener" target="_blank">${escHtml(l.title)}</a> – ${l.price ? l.price + ' zł' : 'cena do uzgodnienia'}${l.area ? ', ' + l.area + ' m²' : ''}${l.rooms ? ', ' + l.rooms + ' pok.' : ''}${l.district ? ', ' + escHtml(l.district) : ''} <small>(${escHtml(l.source)})</small></li>`).join('\n');
-  const html = `<!doctype html><html lang="pl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Lista ogłoszeń wynajmu w Krakowie (${all.length}) | WynajemRadar</title><meta name="description" content="Pełna lista ${all.length} aktualnych ogłoszeń wynajmu mieszkań i pokoi w Krakowie z OLX, Otodom, Morizon i Nieruchomosci-online."><link rel="canonical" href="${site}/lista.html"><link rel="icon" href="icon.png"><style>body{font-family:system-ui,Segoe UI,sans-serif;max-width:900px;margin:30px auto;padding:0 16px;line-height:1.5;color:#222}a{color:#3b4cca}li{margin:4px 0}small{color:#777}</style></head><body><h1>Mieszkania i pokoje do wynajęcia w Krakowie</h1><p>${all.length} ogłoszeń z OLX, Otodom, Morizon i Nieruchomosci-online, stan na ${new Date().toLocaleString('pl-PL')}. <a href="./">Wyszukiwarka z filtrami</a>.</p><ul>${rows}</ul></body></html>`;
+  const html = `<!doctype html><html lang="pl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Lista ogłoszeń wynajmu w Krakowie (${all.length}) | WynajemRadar</title><meta name="description" content="Pełna lista ${all.length} aktualnych ogłoszeń wynajmu mieszkań i pokoi w Krakowie z OLX, Otodom, Morizon, Gratka i Nieruchomosci-online."><link rel="canonical" href="${site}/lista.html"><link rel="icon" href="icon.png"><style>body{font-family:system-ui,Segoe UI,sans-serif;max-width:900px;margin:30px auto;padding:0 16px;line-height:1.5;color:#222}a{color:#3b4cca}li{margin:4px 0}small{color:#777}</style></head><body><h1>Mieszkania i pokoje do wynajęcia w Krakowie</h1><p>${all.length} ogłoszeń z OLX, Otodom, Morizon, Gratka i Nieruchomosci-online, stan na ${new Date().toLocaleString('pl-PL')}. <a href="./">Wyszukiwarka z filtrami</a>.</p><ul>${rows}</ul></body></html>`;
   fs.writeFileSync(path.join(docs, 'lista.html'), html);
   const today = new Date().toISOString().slice(0, 10);
   fs.writeFileSync(path.join(docs, 'sitemap.xml'), `<?xml version="1.0" encoding="UTF-8"?>

@@ -11,7 +11,7 @@
   const DEFAULT_FILTERS = {
     type: 'mieszkanie', priceMin: '', priceMax: '', areaMin: '', areaMax: '', rooms: [], district: '', keyword: '',
     onlyPrivate: false, hideSeekers: true, pages: 2, fbScrolls: 6,
-    sources: { olx: true, otodom: true, morizon: true, nol: true, facebook: false }
+    sources: { olx: true, otodom: true, morizon: true, nol: true, gratka: true, facebook: false }
   };
   let settings = { filters: { ...DEFAULT_FILTERS, ...LS.get('filters', {}) }, sort: LS.get('sort', 'newest'), view: LS.get('view', 'grid'), fbGroups: [] };
   let flags = LS.get('flags', {});          // id -> {fav, hidden}
