@@ -35,7 +35,8 @@ const stem = t => t.length >= 7 ? t.slice(0, 6) : t;
 const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const fmtPrice = n => n == null ? '—' : new Intl.NumberFormat('pl-PL').format(n) + ' zł';
 const num = v => { const n = parseFloat(v); return Number.isFinite(n) && n > 0 ? n : null; };
-const imagesOf = l => ((l.images && l.images.length ? l.images : (l.image ? [l.image] : [])).filter(u => String(u).startsWith('http')));
+// Web URLs, plus screenshots pasted by hand when adding a post from a link (stored as data:image/…).
+const imagesOf = l => ((l.images && l.images.length ? l.images : (l.image ? [l.image] : [])).filter(u => /^(https?:|data:image\/)/.test(String(u))));
 
 /* ---------- Settings <-> UI ---------- */
 function filtersFromUI() {
