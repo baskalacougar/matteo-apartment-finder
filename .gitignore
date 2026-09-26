@@ -6,3 +6,5 @@ rules-test/node_modules/
 rules-test/firestore.rules
 rules-test/*.log
 functions/node_modules/
+rules-test/.desktop-data/
+rules-test/desktop.log

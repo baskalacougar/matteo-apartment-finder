@@ -57,11 +57,15 @@ const waitText = (page, sel, re, timeout = 10000) => page.waitForFunction(([s, r
   await waitText(m, '#cntList', /^1$/);
   ok('Matteo is shown as administrator and adds a listing to the list');
 
-  // --- Add from link, manual path: private Facebook group, no preview service ---
+  // --- Add from link, manual path: Matteo's computer is off (no fetcher here), type the post in ---
+  // (The automatic path through the desktop app is covered by worker.e2e.js.)
   const POST = 'Do wynajęcia 2-pokojowe mieszkanie na Ruczaju, 48 m2, balkon, garaż. Cena 2 900 zł + czynsz administracyjny 450 zł. Wolne od 1 października.';
   await m.click('#addLinkPanel');
   await m.fill('#alUrl', 'https://www.facebook.com/groups/527336080659504/posts/998877665544/?mibextid=abc');
   await m.click('#alNext');
+  await m.waitForSelector('#alManual');
+  assert(/wyłączony/.test(await m.innerText('.modal-title')));
+  await m.click('#alManual');
   await m.waitForSelector('#alText');
   await m.fill('#alText', POST);
   await m.waitForFunction(() => document.getElementById('alPrice').value === '2900' && document.getElementById('alArea').value === '48' && document.getElementById('alRooms').value === '2');
@@ -71,26 +75,7 @@ const waitText = (page, sel, re, timeout = 10000) => page.waitForFunction(([s, r
   await m.screenshot({ path: path.join(shotDir, 'e2e-addlink.png') });
   await m.click('#alAccept');
   await waitText(m, '#cntList', /^2$/);
-  ok('pastes a Facebook link + post text: price 2900, 48 m², 2 rooms, Ruczaj filled in; photo added; accepted to the list');
-
-  // --- Add from link, automatic path: preview service returns a public post ---
-  const { _preview } = require('../functions/index.js');
-  await m.route('**/__preview**', async route => {
-    const u = new URL(route.request().url()).searchParams.get('url');
-    const data = await _preview(u);
-    route.fulfill({ contentType: 'application/json', body: JSON.stringify(data) });
-  });
-  await m.evaluate(() => { window.PREVIEW_ENDPOINT = location.origin + '/__preview'; });
-  await m.click('#addLinkPanel');
-  await m.fill('#alUrl', 'https://www.facebook.com/groups/wynajemkrakow/posts/4298071123604445/');
-  await m.click('#alNext');
-  await m.waitForSelector('.al-note.ok', { timeout: 20000 });
-  const note = await m.innerText('.al-note');
-  assert(/Pobraliśmy podgląd/.test(note));
-  assert(/Mieszkania i pokoje do wynajęcia - Kraków/.test(await m.innerText('.al-card')), 'group name in preview');
-  await m.click('#alAccept');
-  await waitText(m, '#cntList', /^3$/);
-  ok('pastes a public Facebook post: preview fetched automatically (group, text, photo), accepted');
+  ok('computer off: "Wpisz ręcznie" — post text fills price 2900, 48 m², 2 rooms, Ruczaj; photo added; accepted');
 
   // --- Link to a portal we already have: instant, full data ---
   const known = await m.evaluate(() => state.listings.find(l => l.source === 'otodom' && !window.lists.has(l.id)).url);
@@ -100,7 +85,7 @@ const waitText = (page, sel, re, timeout = 10000) => page.waitForFunction(([s, r
   await m.waitForSelector('.al-note.ok');
   assert(/w bazie/.test(await m.innerText('.al-note')));
   await m.click('#alAccept');
-  await waitText(m, '#cntList', /^4$/);
+  await waitText(m, '#cntList', /^3$/);
   ok('pastes an Otodom link: recognised from the database with full data, accepted');
 
   const a = await session(browser, ANNA);

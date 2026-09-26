@@ -78,6 +78,25 @@ const t = async (name, fn) => { await fn(); passed++; console.log('  ok  ' + nam
   await t('regular user cannot list all users', () => assertFails(getDocs(collection(ctx(env, WIFE), 'users'))));
   await t('user reads and writes own profile', async () => { const w = ctx(env, WIFE); await assertSucceeds(setDoc(doc(w, 'users/' + WIFE.uid), { email: WIFE.email, loginCount: 2 })); await assertSucceeds(getDoc(doc(w, 'users/' + WIFE.uid))); });
 
+  console.log('Post fetcher (fetchRequests, media, workers)');
+  await reset();
+  const annaDb = ctx(env, WIFE), adminDb = ctx(env, ADMIN), strangerDb = ctx(env, STRANGER);
+  await t('member creates a fetch request', () => assertSucceeds(setDoc(doc(annaDb, 'fetchRequests/R1'), { url: 'https://www.facebook.com/groups/1/posts/2/', requestedBy: WIFE.uid, status: 'pending' })));
+  await t('cannot create a request in someone else’s name', () => assertFails(setDoc(doc(annaDb, 'fetchRequests/R2'), { url: 'https://x', requestedBy: OWNER.uid, status: 'pending' })));
+  await t('cannot create an already-finished request', () => assertFails(setDoc(doc(annaDb, 'fetchRequests/R3'), { url: 'https://x', requestedBy: WIFE.uid, status: 'done' })));
+  await t('requester reads own request', () => assertSucceeds(getDoc(doc(annaDb, 'fetchRequests/R1'))));
+  await t('other user cannot read it', () => assertFails(getDoc(doc(strangerDb, 'fetchRequests/R1'))));
+  await t('requester cannot write the result', () => assertFails(updateDoc(doc(annaDb, 'fetchRequests/R1'), { status: 'done', result: { title: 'x' } })));
+  await t('requester cancels / attaches a list item', () => assertSucceeds(updateDoc(doc(annaDb, 'fetchRequests/R1'), { autoAdd: { listId: 'L1', itemId: 'fb:2' } })));
+  await t('fetcher (site admin) sees the pending queue', () => assertSucceeds(getDocs(query(collection(adminDb, 'fetchRequests'), where('status', '==', 'pending')))));
+  await t('fetcher writes the result', () => assertSucceeds(updateDoc(doc(adminDb, 'fetchRequests/R1'), { status: 'done', result: { title: 'Mieszkanie' } })));
+  await t('fetcher stores photos', () => assertSucceeds(setDoc(doc(adminDb, 'media/R1_0'), { data: 'data:image/jpeg;base64,xx' })));
+  await t('signed-in user reads photos', () => assertSucceeds(getDoc(doc(annaDb, 'media/R1_0'))));
+  await t('regular user cannot store photos', () => assertFails(setDoc(doc(annaDb, 'media/X'), { data: 'x' })));
+  await t('fetcher fills in a list item it is not a member of', () => assertSucceeds(updateDoc(doc(adminDb, 'lists/L1/items/i1'), { title: 'Uzupełnione', pendingRequest: deleteField() })));
+  await t('fetcher heartbeat', () => assertSucceeds(setDoc(doc(adminDb, 'workers/fb'), { lastSeen: 1 })));
+  await t('users read heartbeat but cannot fake it', async () => { await assertSucceeds(getDoc(doc(annaDb, 'workers/fb'))); await assertFails(setDoc(doc(annaDb, 'workers/fb'), { lastSeen: 2 })); });
+
   await env.cleanup();
   console.log(`\n${passed} tests passed`);
 })().catch(e => { console.error('\nFAILED:', e.message || e); process.exit(1); });

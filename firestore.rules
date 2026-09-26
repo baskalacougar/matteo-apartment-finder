@@ -46,8 +46,37 @@ service cloud.firestore {
       match /items/{itemId} {
         function list() { return get(/databases/$(database)/documents/lists/$(listId)).data; }
         allow read: if isListOwner(list()) || isMember(list()) || siteAdmin();
-        allow write: if isListOwner(list()) || isMember(list());
+        // siteAdmin = the desktop post fetcher, which fills in listings that were added before it finished.
+        allow write: if isListOwner(list()) || isMember(list()) || siteAdmin();
       }
+    }
+
+    // "Add from link": a family member asks the desktop app (signed in as the site admin, logged in to
+    // Facebook) to fetch a post. The requester creates and reads it; only the fetcher writes results.
+    match /fetchRequests/{reqId} {
+      allow create: if verified()
+        && request.resource.data.requestedBy == request.auth.uid
+        && request.resource.data.status == 'pending'
+        && request.resource.data.url is string && request.resource.data.url.size() < 800;
+      allow read: if verified() && (resource.data.requestedBy == request.auth.uid || siteAdmin());
+      // Requester may only cancel or attach the list item to fill in later; the fetcher writes the rest.
+      allow update: if siteAdmin()
+        || (verified() && resource.data.requestedBy == request.auth.uid
+            && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'autoAdd'])
+            && request.resource.data.status in ['pending', 'cancelled']);
+      allow delete: if verified() && (resource.data.requestedBy == request.auth.uid || siteAdmin());
+    }
+
+    // Photos fetched from posts (one document per photo, too big to keep inside a list item).
+    match /media/{mediaId} {
+      allow read: if verified();
+      allow write: if siteAdmin();
+    }
+
+    // Heartbeat of the desktop fetcher, so the site can say whether it is online.
+    match /workers/{workerId} {
+      allow read: if verified();
+      allow write: if siteAdmin();
     }
   }
 }

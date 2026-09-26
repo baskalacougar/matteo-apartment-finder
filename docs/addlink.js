@@ -147,6 +147,7 @@ function stepPreviewHtml(d, note) {
     ${note ? `<p class="al-note ${note.kind}">${note.text}</p>` : ''}
     <div class="al-grid">
       <div class="al-left">${previewCard(d)}
+        ${d.thumbs && d.thumbs.length > 1 ? `<div class="al-thumbs">${d.thumbs.slice(0, 12).map(t => `<img src="${esc(t)}" alt="">`).join('')}${d.thumbs.length > 12 ? `<span>+${d.thumbs.length - 12}</span>` : ''}</div>` : ''}
         <div class="al-img-actions">
           <label class="btn btn-sm"><input type="file" id="alFile" accept="image/*" hidden>${d.image ? 'Zmień zdjęcie' : 'Dodaj zdjęcie'}</label>
           ${d.image ? '<button class="btn btn-sm" id="alNoImg">Usuń</button>' : ''}
@@ -212,7 +213,8 @@ function renderPreview(m, note) {
       const listing = draft.fromDb ? draft.fromDb : {
         id: draft.id, source: draft.source, url: draft.url, title: draft.title || guessTitle(draft.description, 'Ogłoszenie z Facebooka'),
         price: draft.price, extraRent: draft.extraRent, area: draft.area, rooms: draft.rooms, district: draft.district, type: draft.type || 'mieszkanie',
-        image: draft.image || null, description: draft.description || '', group: draft.group || null, postedAt: new Date().toISOString(), manual: true
+        image: draft.image || null, description: draft.description || '', group: draft.group || null, author: draft.author || null,
+        photoIds: draft.photoIds && draft.photoIds.length ? draft.photoIds : undefined, postedAt: new Date().toISOString(), manual: true
       };
       if (window.lists.has(listing.id)) { toast('To ogłoszenie jest już na liście'); btn.disabled = false; return; }
       await window.lists.add(listing);
@@ -244,6 +246,8 @@ export async function open(prefill = {}) {
     }
     const clean = source === 'facebook' ? url.split('#')[0] : (cleanUrl(url) || url);
     draft = { id: stableId(source, clean), source, url: clean, title: '', price: null, area: null, rooms: null, district: null, image: null, description: prefill.text || '', group: null, type: 'mieszkanie' };
+    // Facebook posts (and links we don't have) go to the desktop fetcher, which is logged in to Facebook.
+    if (window.lists.state.mode === 'cloud') return fetchViaDesktop(m, clean);
     const pv = await fetchPreview(clean);
     if (pv && pv.ok) {
       const p = parsePost([pv.title, pv.text].join('\n'));
@@ -260,6 +264,59 @@ export async function open(prefill = {}) {
   m.querySelector('#alNext').onclick = next;
   input.addEventListener('keydown', e => { if (e.key === 'Enter') next(); });
   if (prefill.url && prefill.auto) next();
+}
+
+/* ---------- desktop fetcher: full text + all photos, also from private groups ---------- */
+function manualFallback(m, text) {
+  renderPreview(m, { kind: 'info', text: `${text} Możesz wkleić treść posta ręcznie, a cena, metraż i pokoje uzupełnią się same.` });
+}
+
+async function addNowFillLater(m, reqId) {
+  const listing = { id: draft.id, source: draft.source, url: draft.url, title: 'Post z Facebooka, pobieram treść i zdjęcia…', manual: true, pendingRequest: reqId, postedAt: new Date().toISOString(), type: 'mieszkanie', description: '' };
+  if (window.lists.has(listing.id)) { toast('To ogłoszenie jest już na liście'); return; }
+  await window.lists.add(listing);
+  await window.lists.fetcher.attach(reqId, window.lists.state.activeId, listing.id);
+  closeModal();
+  toast('Dodano. Treść i zdjęcia pojawią się, gdy komputer z aplikacją je pobierze.');
+  const tab = document.getElementById('tabList'); if (tab && state.tab !== 'list') tab.click();
+}
+
+async function fetchViaDesktop(m, url) {
+  const F = window.lists.fetcher;
+  const st = await F.status();
+  let reqId;
+  try { reqId = await F.request(url); } catch (e) { return manualFallback(m, 'Nie udało się zlecić pobrania: ' + e.message + '.'); }
+  const started = Date.now();
+  const waitingHtml = online => `<button class="modal-x icon-btn" data-close title="Zamknij">✕</button>
+    <h3 class="modal-title">${online ? 'Pobieram…' : `${esc(st.name || 'Komputer Matteo')} jest teraz wyłączony`}</h3>
+    ${online
+      ? `<div class="al-wait"><div class="al-spinner"></div><div><b>Komputer Matteo otwiera ${/facebook\.com|fb\.(com|me)/.test(url) ? 'post na Facebooku' : 'ogłoszenie'}</b><br><span id="alElapsed">To zwykle trwa 5–20 sekund, przy wielu zdjęciach trochę dłużej.</span></div></div>`
+      : `<p class="modal-text">Treść i zdjęcia z Facebooka pobiera ${esc((st.name || 'Komputer Matteo').replace(/^Komputer/, 'komputer'))}${st.lastSeen ? `, ostatnio włączony ${st.lastSeen.toLocaleString('pl-PL', { day: 'numeric', month: 'numeric', hour: '2-digit', minute: '2-digit' })}` : ''}. Dodaj ogłoszenie już teraz, a treść i wszystkie zdjęcia pojawią się na liście same, gdy tylko komputer się włączy. Nic więcej nie trzeba robić.</p>`}
+    <div class="modal-actions split"><button class="btn" id="alManual">Wpisz ręcznie</button><button class="btn ${online ? '' : 'btn-primary'}" id="alLater">Dodaj teraz, uzupełni się później</button></div>`;
+  m.innerHTML = waitingHtml(st.online);
+  const stop = () => { if (unsub) unsub(); clearInterval(tick); };
+  m.querySelector('#alManual').onclick = () => { stop(); F.cancel(reqId); manualFallback(m, 'Wpisujesz dane ręcznie.'); };
+  m.querySelector('#alLater').onclick = async () => { stop(); try { await addNowFillLater(m, reqId); } catch (e) { toast(e.message); } };
+  const tick = setInterval(() => {
+    const s = Math.round((Date.now() - started) / 1000);
+    const el = m.querySelector('#alElapsed');
+    if (el && s > 4) el.textContent = s < 45 ? `Trwa ${s} s…` : `Trwa ${s} s. Komputer może być zajęty, możesz dodać ogłoszenie teraz, a resztę uzupełni później.`;
+  }, 1000);
+  let unsub = F.watch(reqId, async r => {
+    if (!r || !document.body.contains(m)) { stop(); return; }
+    if (r.status === 'working') { const el = m.querySelector('#alElapsed'); if (el && r.progress) el.textContent = r.progress; }
+    if (r.status === 'error') { stop(); manualFallback(m, r.error || 'Nie udało się pobrać posta.'); }
+    if (r.status === 'done' && r.result) {
+      stop();
+      const x = r.result;
+      Object.assign(draft, {
+        title: x.title || draft.title, description: x.text || '', group: x.group || null, author: x.author || null,
+        price: x.price ?? null, extraRent: x.extraRent ?? null, area: x.area ?? null, rooms: x.rooms ?? null, district: x.district || null, type: x.type || 'mieszkanie',
+        image: x.thumb || null, photoIds: x.photoIds || [], thumbs: x.thumbs || []
+      });
+      renderPreview(m, { kind: 'ok', text: `Pobrano post${x.group ? ' z grupy „' + esc(x.group) + '”' : ''}: ${x.photoIds && x.photoIds.length ? x.photoIds.length + ' zdjęć' : 'bez zdjęć'}${x.author ? ', autor ' + esc(x.author) : ''}. Sprawdź dane i dodaj.` });
+    }
+  });
 }
 
 /* ---------- Android share target: /?share_url=…&share_text=… ---------- */
