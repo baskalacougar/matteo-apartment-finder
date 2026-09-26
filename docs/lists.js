@@ -13,7 +13,7 @@
  * Membership is by e-mail (lower-cased), so you can add someone before they ever signed in;
  * `members` holds everyone who has already opened the list (used for names and "joined" status).
  */
-import { collection, doc, addDoc, setDoc, updateDoc, deleteDoc, onSnapshot, query, where, getDocs, getDoc, writeBatch, serverTimestamp, arrayUnion, arrayRemove, deleteField } from 'https://www.gstatic.com/firebasejs/11.1.0/firebase-firestore.js';
+import { collection, doc, addDoc, setDoc, updateDoc, deleteDoc, onSnapshot, query, where, getDocs, writeBatch, serverTimestamp, arrayUnion, arrayRemove, deleteField } from 'https://www.gstatic.com/firebasejs/11.1.0/firebase-firestore.js';
 
 const MAX_MEMBERS = 30;
 const state = { lists: [], activeId: null, items: {}, user: null, mode: 'local' };
@@ -24,44 +24,8 @@ const snapshotOf = l => ({
   id: l.id, source: l.source, url: l.url, title: l.title, price: l.price ?? null, area: l.area ?? null, rooms: l.rooms ?? null,
   district: l.district ?? null, type: l.type ?? null, image: (l.images && l.images[0]) || l.image || null, postedAt: l.postedAt || null,
   // Listings added by hand (e.g. from a Facebook post) carry their own text and group name.
-  ...(l.manual ? { manual: true, description: String(l.description || '').slice(0, 6000), group: l.group || null, extraRent: l.extraRent ?? null, author: l.author || null } : {}),
-  ...(l.photoIds ? { photoIds: l.photoIds.slice(0, 40) } : {}),
-  ...(l.pendingRequest ? { pendingRequest: l.pendingRequest } : {})
+  ...(l.manual ? { manual: true, description: String(l.description || '').slice(0, 6000), group: l.group || null, extraRent: l.extraRent ?? null } : {})
 });
-
-/* ---------------- post fetcher (desktop app) ---------------- */
-const photoCache = new Map();
-const fetcher = {
-  /** Online if the desktop fetcher sent a heartbeat in the last 2 minutes. */
-  async status() {
-    if (!db) return { online: false };
-    try {
-      const s = await getDoc(doc(db, 'workers', 'fb'));
-      if (!s.exists()) return { online: false };
-      const d = s.data(); const last = d.lastSeen && d.lastSeen.toDate ? d.lastSeen.toDate() : null;
-      return { online: !!last && Date.now() - last < 120e3, fbLoggedIn: !!d.fbLoggedIn, lastSeen: last, name: d.name || 'komputer' };
-    } catch (_) { return { online: false }; }
-  },
-  async request(url) {
-    if (!db || !state.user) throw new Error('Zaloguj się, aby pobierać posty.');
-    const ref = await addDoc(collection(db, 'fetchRequests'), { url, requestedBy: state.user.uid, requestedByName: me().name, status: 'pending', createdAt: serverTimestamp() });
-    return ref.id;
-  },
-  watch(id, cb) { return onSnapshot(doc(db, 'fetchRequests', id), s => cb(s.exists() ? { id, ...s.data() } : null), () => cb(null)); },
-  cancel(id) { return updateDoc(doc(db, 'fetchRequests', id), { status: 'cancelled' }).catch(() => {}); },
-  /** Ask the fetcher to fill in this list item when it finishes (used when the computer is off). */
-  attach(id, listId, itemId) { return updateDoc(doc(db, 'fetchRequests', id), { autoAdd: { listId, itemId } }); },
-  async photos(ids) {
-    const out = [];
-    for (const id of ids || []) {
-      if (!photoCache.has(id)) {
-        try { const s = await getDoc(doc(db, 'media', id)); photoCache.set(id, s.exists() ? s.data().data : null); } catch (_) { photoCache.set(id, null); }
-      }
-      if (photoCache.get(id)) out.push(photoCache.get(id));
-    }
-    return out;
-  }
-};
 
 /* ---------------- local fallback (no account) ---------------- */
 const LS_KEY = 'sharedLists';
@@ -240,7 +204,6 @@ window.lists = {
   add: l => api.add(l), remove: i => api.remove(i), setNote: (i, n) => api.setNote(i, n), vote: (i, v) => api.vote(i, v),
   has: id => !!state.items[id],
   item: id => state.items[id] || null,
-  fetcher,
   activeName: () => { const l = listById(state.activeId); return l ? l.name : ''; },
   active: () => listById(state.activeId) || null,
   isOwner: id => isOwner(listById(id)),

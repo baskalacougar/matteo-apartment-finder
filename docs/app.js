@@ -35,8 +35,7 @@ const stem = t => t.length >= 7 ? t.slice(0, 6) : t;
 const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const fmtPrice = n => n == null ? '—' : new Intl.NumberFormat('pl-PL').format(n) + ' zł';
 const num = v => { const n = parseFloat(v); return Number.isFinite(n) && n > 0 ? n : null; };
-// Web URLs, plus photos stored inline (data:image/…) for posts fetched from Facebook or added by hand.
-const imagesOf = l => ((l.images && l.images.length ? l.images : (l.image ? [l.image] : [])).filter(u => /^(https?:|data:image\/)/.test(String(u))));
+const imagesOf = l => ((l.images && l.images.length ? l.images : (l.image ? [l.image] : [])).filter(u => String(u).startsWith('http')));
 
 /* ---------- Settings <-> UI ---------- */
 function filtersFromUI() {
@@ -259,8 +258,7 @@ function cardHtml(l, kwTerms) {
     <div class="thumb">
       ${imgs[0] ? `<img src="${esc(imgs[0])}" loading="lazy" alt="">` : `<div class="noimg"><svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 11l9-8 9 8"/><path d="M5 10v10h14V10"/></svg></div>`}
       <div class="badges"><span class="badge src-${l.source}">${SOURCE_NAME[l.source] || 'Link'}</span>${isNew(l) ? '<span class="badge new">Nowe</span>' : ''}${l.type === 'pokoj' ? '<span class="badge type">pokój</span>' : ''}${l.seeker ? '<span class="badge type">szuka</span>' : ''}</div>
-      ${Math.max(imgs.length, (l.photoIds || []).length) > 1 ? `<span class="photo-count">${Math.max(imgs.length, (l.photoIds || []).length)} zdj.</span>` : ''}
-      ${l.pendingRequest ? '<span class="photo-count pending-fetch">pobieram…</span>' : ''}
+      ${imgs.length > 1 ? `<span class="photo-count">${imgs.length} zdj.</span>` : ''}
     </div>
     <div class="body">
       <div class="price">${fmtPrice(l.price)} ${ppm}</div>
@@ -549,22 +547,11 @@ function galleryHtml(l) {
   </div>`;
 }
 
-listOnly.photos = {};
 function listOnly(id) {
   const it = window.lists && window.lists.item(id);
   if (!it) return null;
   const added = it.addedAt && it.addedAt.toDate ? it.addedAt.toDate() : (it.addedAt ? new Date(it.addedAt) : new Date());
-  // Full-size photos of fetched posts live in media/ documents; load them once, then redraw the drawer.
-  let images = it.image ? [it.image] : [];
-  if (it.photoIds && it.photoIds.length && window.lists.fetcher) {
-    const cached = listOnly.photos[id];
-    if (cached && cached.length) images = cached;
-    else if (!cached) {
-      listOnly.photos[id] = [];
-      window.lists.fetcher.photos(it.photoIds).then(ph => { listOnly.photos[id] = ph; if (state.selectedId === id) openDrawer(id, { keepIndex: true }); });
-    }
-  }
-  return { ...it, detailsFetched: true, firstSeenAt: added.toISOString(), postedText: it.pendingRequest ? 'pobieranie treści…' : (it.group ? 'z grupy ' + it.group : (it.manual ? 'dodane z linku' : '')), images };
+  return { ...it, detailsFetched: true, firstSeenAt: added.toISOString(), postedText: it.manual ? 'dodane ręcznie' : '', images: it.image ? [it.image] : [] };
 }
 
 function openDrawer(id, { keepIndex = false } = {}) {
