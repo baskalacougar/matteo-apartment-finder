@@ -1,0 +1,203 @@
+/* Theme layer for WynajemRadar: light (default), dark and custom (RGB pickers).
+   Loaded after styles.css and components.css. theme.js sets on <html>:
+     data-theme="light|dark|custom", data-tone="light|dark",
+     and for custom: --c-bg, --c-accent, --on-accent (inline). */
+
+/* ---------- extra tokens (light defaults) ---------- */
+:root {
+  color-scheme: light;
+  --on-accent: #fff;
+  --accent-ring: color-mix(in srgb, var(--green) 16%, transparent);
+  --accent-shadow: color-mix(in srgb, var(--green) 30%, transparent);
+  --accent-border: color-mix(in srgb, var(--green) 45%, var(--surface));
+  --count-bg: color-mix(in srgb, var(--text) 7%, transparent);
+  --scroll: color-mix(in srgb, var(--text) 16%, transparent);
+  --scroll-hover: color-mix(in srgb, var(--text) 28%, transparent);
+  --track: #d7dfda;
+  --dot: #cbd5cf;
+  --hover-border: #bfc9c3;
+  --noimg: #b3bfb8;
+  --danger-bg: #fee2e2;
+  --danger-border: #fecaca;
+  --danger-text: #991b1b;
+  --toast-bg: #14201a;
+  --toast-text: #fff;
+  --chip-warn-bg: #fef3c7;
+  --chip-warn-border: #fde68a;
+  --chip-warn-text: #92400e;
+  --info-bg: #eff6ff;
+  --info-text: #1e3a8a;
+  --pending-bg: #f1f5f9;
+  --pending-text: #64748b;
+}
+
+/* ---------- dark ---------- */
+html[data-theme="dark"] {
+  color-scheme: dark;
+  --bg: #0e1311;
+  --bg-2: #111815;
+  --surface: #161d1a;
+  --surface-2: #1c2521;
+  --surface-hover: #232e29;
+  --border: #25302b;
+  --border-strong: #34413b;
+  --text: #e6eee9;
+  --text-2: #b1c0b7;
+  --muted: #7d8f85;
+  --green: #22c55e;
+  --green-dark: #16a34a;
+  --green-soft: rgba(34, 197, 94, 0.14);
+  --green-ink: #86efac;
+  --accent-grad: linear-gradient(135deg, #22c55e 0%, #16a34a 100%);
+  --shadow: 0 1px 2px rgba(0, 0, 0, 0.35), 0 10px 30px rgba(0, 0, 0, 0.35);
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.35), 0 2px 8px rgba(0, 0, 0, 0.25);
+  --track: #34413b;
+  --dot: #4b5952;
+  --hover-border: #4b5952;
+  --noimg: #4b5952;
+  --danger-bg: rgba(220, 38, 38, 0.14);
+  --danger-border: rgba(248, 113, 113, 0.35);
+  --danger-text: #fca5a5;
+  --toast-bg: #e6eee9;
+  --toast-text: #0e1311;
+  --chip-warn-bg: rgba(245, 158, 11, 0.16);
+  --chip-warn-border: rgba(245, 158, 11, 0.35);
+  --chip-warn-text: #fcd34d;
+  --info-bg: rgba(59, 130, 246, 0.14);
+  --info-text: #bfdbfe;
+  --pending-bg: rgba(148, 163, 184, 0.12);
+  --pending-text: #94a3b8;
+}
+
+/* ---------- custom: everything derived from two picked colours ---------- */
+html[data-theme="custom"] {
+  --green: var(--c-accent);
+  --accent-grad: linear-gradient(135deg, color-mix(in srgb, var(--c-accent) 82%, white) 0%, var(--c-accent) 100%);
+  --bg: var(--c-bg);
+}
+html[data-theme="custom"][data-tone="light"] {
+  color-scheme: light;
+  --text: color-mix(in srgb, var(--c-bg) 8%, #101814);
+  --surface: color-mix(in srgb, var(--c-bg) 25%, white);
+  --bg-2: color-mix(in srgb, var(--c-bg) 60%, white);
+  --surface-2: color-mix(in srgb, var(--surface) 92%, var(--text));
+  --surface-hover: color-mix(in srgb, var(--surface) 87%, var(--text));
+  --border: color-mix(in srgb, var(--surface) 89%, var(--text));
+  --border-strong: color-mix(in srgb, var(--surface) 80%, var(--text));
+  --text-2: color-mix(in srgb, var(--text) 74%, var(--surface));
+  --muted: color-mix(in srgb, var(--text) 52%, var(--surface));
+  --green-dark: color-mix(in srgb, var(--c-accent) 80%, black);
+  --green-soft: color-mix(in srgb, var(--c-accent) 16%, var(--surface));
+  --green-ink: color-mix(in srgb, var(--c-accent) 55%, black);
+  --track: color-mix(in srgb, var(--surface) 76%, var(--text));
+  --dot: color-mix(in srgb, var(--surface) 70%, var(--text));
+  --hover-border: color-mix(in srgb, var(--surface) 70%, var(--text));
+  --noimg: color-mix(in srgb, var(--surface) 62%, var(--text));
+}
+html[data-theme="custom"][data-tone="dark"] {
+  color-scheme: dark;
+  --text: color-mix(in srgb, var(--c-bg) 6%, #f1f5f2);
+  --surface: color-mix(in srgb, var(--c-bg) 91%, white);
+  --bg-2: color-mix(in srgb, var(--c-bg) 96%, white);
+  --surface-2: color-mix(in srgb, var(--c-bg) 85%, white);
+  --surface-hover: color-mix(in srgb, var(--c-bg) 79%, white);
+  --border: color-mix(in srgb, var(--c-bg) 83%, white);
+  --border-strong: color-mix(in srgb, var(--c-bg) 73%, white);
+  --text-2: color-mix(in srgb, var(--text) 74%, var(--c-bg));
+  --muted: color-mix(in srgb, var(--text) 52%, var(--c-bg));
+  --green-dark: color-mix(in srgb, var(--c-accent) 85%, black);
+  --green-soft: color-mix(in srgb, var(--c-accent) 18%, var(--c-bg));
+  --green-ink: color-mix(in srgb, var(--c-accent) 62%, white);
+  --shadow: 0 1px 2px rgba(0, 0, 0, 0.35), 0 10px 30px rgba(0, 0, 0, 0.35);
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.35), 0 2px 8px rgba(0, 0, 0, 0.25);
+  --track: color-mix(in srgb, var(--c-bg) 70%, white);
+  --dot: color-mix(in srgb, var(--c-bg) 62%, white);
+  --hover-border: color-mix(in srgb, var(--c-bg) 62%, white);
+  --noimg: color-mix(in srgb, var(--c-bg) 62%, white);
+  --danger-bg: rgba(220, 38, 38, 0.14);
+  --danger-border: rgba(248, 113, 113, 0.35);
+  --danger-text: #fca5a5;
+  --toast-bg: var(--text);
+  --toast-text: var(--c-bg);
+  --chip-warn-bg: rgba(245, 158, 11, 0.16);
+  --chip-warn-border: rgba(245, 158, 11, 0.35);
+  --chip-warn-text: #fcd34d;
+  --info-bg: rgba(59, 130, 246, 0.14);
+  --info-text: #bfdbfe;
+  --pending-bg: rgba(148, 163, 184, 0.12);
+  --pending-text: #94a3b8;
+}
+
+/* ---------- rules that used fixed colours now follow the tokens ---------- */
+::-webkit-scrollbar-thumb { background: var(--scroll); background-clip: padding-box; }
+::-webkit-scrollbar-thumb:hover { background: var(--scroll-hover); background-clip: padding-box; }
+.btn:hover { border-color: var(--hover-border); }
+.btn-primary { color: var(--on-accent); box-shadow: 0 6px 18px var(--accent-shadow); }
+.btn-primary:hover { box-shadow: 0 8px 22px var(--accent-shadow); }
+.btn-danger { background: var(--danger-bg); border-color: var(--danger-border); color: var(--danger-text); }
+.input:focus, .select:focus, .list-extras .note:focus, .range label:focus-within { border-color: var(--green); box-shadow: 0 0 0 3px var(--accent-ring); }
+.pill-ok { border-color: var(--accent-border); }
+.chips button.active, .list-votes .vote.on { border-color: var(--accent-border); }
+.switch .track { background: var(--track); }
+.source-row .st .dot, .status-sources .dot { background: var(--dot); }
+.tabs .count { background: var(--count-bg); }
+.tabs button.active .count { background: color-mix(in srgb, var(--green) 18%, transparent); }
+.tabs button[data-v=new] .count.has, .badge.new { background: var(--green); color: var(--on-accent); }
+.card.is-new { border-color: var(--accent-border); }
+.card .thumb .noimg { color: var(--noimg); }
+.toast { background: var(--toast-bg); color: var(--toast-text); }
+.gate-photo-text h2 b { color: color-mix(in srgb, var(--green) 55%, white); }
+.gate-panel, .gate { background: var(--surface); }
+.drawer, .drawer-foot { background: var(--surface); }
+.field-error, .member-list .rm { color: var(--danger-text); }
+.btn-danger-solid { background: #dc2626; color: #fff; }
+.role-chip.admin { background: var(--chip-warn-bg); border-color: var(--chip-warn-border); color: var(--chip-warn-text); }
+.role-chip.pending { background: var(--pending-bg); color: var(--pending-text); }
+.al-note.info { background: var(--info-bg); color: var(--info-text); }
+.al-missing { color: var(--chip-warn-text); }
+.select option { background: var(--surface); color: var(--text); }
+.modal { background: var(--surface); color: var(--text); }
+.modal-backdrop { background: color-mix(in srgb, var(--bg) 35%, rgba(0, 0, 0, 0.55)); }
+.adm-overlay { background: var(--bg); }
+.boot { background: var(--surface); }
+
+/* ---------- theme picker ---------- */
+.theme-btn { width: 38px; height: 38px; padding: 0; justify-content: center; border-radius: 11px; }
+.theme-btn svg { width: 18px; height: 18px; }
+.theme-pop { position: fixed; z-index: 80; width: 320px; background: var(--surface); color: var(--text); border: 1px solid var(--border-strong); border-radius: 18px; box-shadow: var(--shadow); padding: 16px; animation: popIn .15s ease-out; }
+.theme-pop h4 { margin: 0 0 12px; font-size: 14px; }
+.theme-modes { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.theme-mode { border: 2px solid var(--border); border-radius: 12px; background: var(--surface-2); padding: 8px; cursor: pointer; text-align: center; font-size: 12.5px; font-weight: 600; color: var(--text); }
+.theme-mode.on { border-color: var(--green); }
+.theme-mode .sw { height: 38px; border-radius: 8px; margin-bottom: 6px; display: grid; grid-template-columns: 2fr 1fr; overflow: hidden; border: 1px solid var(--border); }
+.theme-mode .sw i { display: block; }
+.theme-custom { margin-top: 14px; display: flex; flex-direction: column; gap: 12px; }
+.theme-row > span { display: flex; justify-content: space-between; font-size: 12.5px; font-weight: 600; color: var(--text-2); margin-bottom: 6px; }
+.theme-row > span code { font-weight: 500; color: var(--muted); font-size: 12px; }
+.theme-swatches { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+.theme-swatches button { width: 26px; height: 26px; border-radius: 50%; border: 2px solid var(--surface); box-shadow: 0 0 0 1px var(--border-strong); cursor: pointer; padding: 0; }
+.theme-swatches button.on { box-shadow: 0 0 0 2px var(--text); }
+.theme-swatches label.picker { position: relative; width: 26px; height: 26px; border-radius: 50%; cursor: pointer; background: conic-gradient(red, yellow, lime, cyan, blue, magenta, red); box-shadow: 0 0 0 1px var(--border-strong); }
+.theme-swatches label.picker input { position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; height: 100%; }
+.theme-rgb { display: grid; grid-template-columns: 14px 1fr 34px; gap: 6px 8px; align-items: center; font-size: 11.5px; color: var(--muted); margin-top: 8px; }
+.theme-rgb input[type=range] { width: 100%; accent-color: var(--green); }
+.theme-rgb output { text-align: right; font-variant-numeric: tabular-nums; }
+.theme-foot { display: flex; justify-content: space-between; align-items: center; margin-top: 4px; }
+.theme-foot small { color: var(--muted); font-size: 11.5px; }
+
+/* ---------- more fixed colours ---------- */
+.badge { background: color-mix(in srgb, var(--surface) 92%, transparent); }
+mark { background: var(--chip-warn-bg); color: var(--chip-warn-text); }
+.st-bad { color: var(--danger-text); }
+.modal { box-shadow: 0 24px 60px rgba(0, 0, 0, 0.3); }
+.adm-tip { background: var(--toast-bg); color: var(--toast-text); }
+html[data-tone="dark"] .drawer, html[data-theme="dark"] .drawer { box-shadow: -20px 0 50px rgba(0, 0, 0, 0.45); }
+.badge.type { background: color-mix(in srgb, var(--surface) 92%, transparent); }
+:is(html[data-theme="dark"], html[data-tone="dark"]) .badge.src-olx { color: #93b4ff; }
+:is(html[data-theme="dark"], html[data-tone="dark"]) .badge.src-otodom { color: #6ee7b7; }
+:is(html[data-theme="dark"], html[data-tone="dark"]) .badge.src-morizon { color: #fdba74; }
+:is(html[data-theme="dark"], html[data-tone="dark"]) .badge.src-nol { color: #fcd34d; }
+:is(html[data-theme="dark"], html[data-tone="dark"]) .badge.src-gratka { color: #c4b5fd; }
+:is(html[data-theme="dark"], html[data-tone="dark"]) .badge.src-facebook { color: #7fb2ff; }
+:is(html[data-theme="dark"], html[data-tone="dark"]) .gate-photo-text h2 b { color: #86efac; }
+.theme-foot .btn { white-space: nowrap; }
