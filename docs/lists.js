@@ -22,7 +22,9 @@ const norm = e => String(e || '').trim().toLowerCase();
 const EMAIL_RE = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
 const snapshotOf = l => ({
   id: l.id, source: l.source, url: l.url, title: l.title, price: l.price ?? null, area: l.area ?? null, rooms: l.rooms ?? null,
-  district: l.district ?? null, type: l.type ?? null, image: (l.images && l.images[0]) || l.image || null, postedAt: l.postedAt || null
+  district: l.district ?? null, type: l.type ?? null, image: (l.images && l.images[0]) || l.image || null, postedAt: l.postedAt || null,
+  // Listings added by hand (e.g. from a Facebook post) carry their own text and group name.
+  ...(l.manual ? { manual: true, description: String(l.description || '').slice(0, 6000), group: l.group || null, extraRent: l.extraRent ?? null } : {})
 });
 
 /* ---------------- local fallback (no account) ---------------- */
@@ -201,6 +203,8 @@ window.lists = {
   leave: i => api.leave(i), deleteList: i => api.deleteList(i), setActive: i => api.setActive(i),
   add: l => api.add(l), remove: i => api.remove(i), setNote: (i, n) => api.setNote(i, n), vote: (i, v) => api.vote(i, v),
   has: id => !!state.items[id],
+  item: id => state.items[id] || null,
+  activeName: () => { const l = listById(state.activeId); return l ? l.name : ''; },
   active: () => listById(state.activeId) || null,
   isOwner: id => isOwner(listById(id)),
   members: membersOf,

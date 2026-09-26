@@ -229,8 +229,9 @@ function render() {
     $('cntList').textContent = items.length;
     visible = items.map(it => ({ ...(all.find(x => x.id === it.id) || it), ...it, fromList: true }));
     visible.sort((a, b) => ts(b.addedAt) - ts(a.addedAt));
-    res.innerHTML = visible.map(l => `<div class="list-item">${cardHtml(l, kwTerms)}${listExtrasHtml(l)}</div>`).join('');
-    $('empty').classList.toggle('show', visible.length === 0);
+    const bar = window.lists.state.activeId ? `<div class="list-toolbar"><div><b>${esc(window.lists.activeName())}</b><span>${items.length} ${items.length === 1 ? 'ogłoszenie' : 'ogłoszeń'} · dodawaj plusem na kartach albo z linku</span></div><button class="btn btn-primary btn-sm" id="addLinkBtn">＋ Dodaj z linku, np. z Facebooka</button></div>` : '';
+    res.innerHTML = bar + (visible.length ? visible.map(l => `<div class="list-item">${cardHtml(l, kwTerms)}${listExtrasHtml(l)}</div>`).join('') : (bar ? '<div class="list-empty-hint">Lista jest pusta. Kliknij <b>+</b> na dowolnej karcie w zakładce „Wszystkie” albo dodaj ogłoszenie z linku.</div>' : ''));
+    $('empty').classList.toggle('show', !bar && visible.length === 0);
     $('statusText').textContent = window.lists.state.activeId ? `${items.length} ogłoszeń na liście` : 'Utwórz wspólną listę w panelu po lewej';
     return;
   }
@@ -250,13 +251,13 @@ function cardHtml(l, kwTerms) {
   if (l.district) meta.push(l.district);
   if (l.floor) meta.push(`piętro ${l.floor}`);
   const ppm = l.price && l.area && l.type !== 'pokoj' ? `<small>${Math.round(l.price / l.area)} zł/m²</small>` : (l.extraRent ? `<small>+ ${l.extraRent} zł czynsz</small>` : '');
-  const src = l.source === 'facebook' ? (l.group ? esc(l.group).slice(0, 34) : 'Facebook') : SOURCE_NAME[l.source];
+  const src = l.source === 'facebook' ? (l.group ? esc(l.group).slice(0, 34) : 'Facebook') : (SOURCE_NAME[l.source] || 'Link');
   const imgs = imagesOf(l);
   return `
   <article class="card ${isNew(l) ? 'is-new' : ''}" data-id="${esc(l.id)}">
     <div class="thumb">
       ${imgs[0] ? `<img src="${esc(imgs[0])}" loading="lazy" alt="">` : `<div class="noimg"><svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 11l9-8 9 8"/><path d="M5 10v10h14V10"/></svg></div>`}
-      <div class="badges"><span class="badge src-${l.source}">${SOURCE_NAME[l.source]}</span>${isNew(l) ? '<span class="badge new">Nowe</span>' : ''}${l.type === 'pokoj' ? '<span class="badge type">pokój</span>' : ''}${l.seeker ? '<span class="badge type">szuka</span>' : ''}</div>
+      <div class="badges"><span class="badge src-${l.source}">${SOURCE_NAME[l.source] || 'Link'}</span>${isNew(l) ? '<span class="badge new">Nowe</span>' : ''}${l.type === 'pokoj' ? '<span class="badge type">pokój</span>' : ''}${l.seeker ? '<span class="badge type">szuka</span>' : ''}</div>
       ${imgs.length > 1 ? `<span class="photo-count">${imgs.length} zdj.</span>` : ''}
     </div>
     <div class="body">
@@ -372,6 +373,7 @@ function renderListsPanel() {
           ${owner ? `<button class="btn btn-primary btn-sm" id="inviteOpen">＋ Zaproś osobę</button>` : ''}
           <button class="btn btn-sm" id="manageOpen">${owner ? 'Zarządzaj' : 'Osoby na liście'}</button>
         </div>
+        <button class="btn btn-sm btn-block al-panel-btn" id="addLinkPanel">🔗 Dodaj ogłoszenie z linku</button>
         ${!owner ? `<p class="help">Nowe osoby dodaje administrator: <b>${esc(L.ownerName(active.id))}</b>.</p>` : ''}
       </div>
       <button class="link-btn" id="newListBtn">＋ Nowa lista</button>`;
@@ -545,14 +547,21 @@ function galleryHtml(l) {
   </div>`;
 }
 
+function listOnly(id) {
+  const it = window.lists && window.lists.item(id);
+  if (!it) return null;
+  const added = it.addedAt && it.addedAt.toDate ? it.addedAt.toDate() : (it.addedAt ? new Date(it.addedAt) : new Date());
+  return { ...it, detailsFetched: true, firstSeenAt: added.toISOString(), postedText: it.manual ? 'dodane ręcznie' : '', images: it.image ? [it.image] : [] };
+}
+
 function openDrawer(id, { keepIndex = false } = {}) {
-  const l = state.listings.find(x => x.id === id);
+  const l = state.listings.find(x => x.id === id) || listOnly(id);
   if (!l) return;
   if (state.selectedId !== id || !keepIndex) gallery.idx = 0;
   state.selectedId = id;
   const kwTerms = terms($('keyword').value);
   if (!l.detailsFetched && !l.detailsLoading && l.source !== 'facebook') loadDetails(l);
-  $('drawerSource').textContent = SOURCE_NAME[l.source] + (l.group ? ' · ' + l.group : '');
+  $('drawerSource').textContent = (SOURCE_NAME[l.source] || 'Link') + (l.group ? ' · ' + l.group : '');
   $('drawerSource').className = 'badge src-' + l.source;
   const kv = [
     ['Cena', fmtPrice(l.price) + (l.extraRent ? ` (+ ${l.extraRent} zł czynsz adm.)` : '')],
@@ -718,8 +727,10 @@ async function init() {
     if (e.target.closest('.hide')) return live && flag(id, 'hidden', !live.hidden);
     if (e.target.closest('.tolist')) return toggleOnList(id);
     if (e.target.closest('.open')) { const l = live || Object.values(window.lists ? window.lists.state.items : {}).find(x => x.id === id); return l && finder.openExternal(l.url); }
-    if (live) openDrawer(id); else toast('To ogłoszenie zniknęło już z portalu, ale link nadal może działać (↗)');
+    if (live || listOnly(id)) openDrawer(id); else toast('To ogłoszenie zniknęło już z portalu, ale link nadal może działać (↗)');
   });
+  // Add a listing from a pasted link (Facebook post, any portal).
+  document.addEventListener('click', e => { if (e.target.closest('#addLinkBtn, #addLinkPanel')) { if (window.addFromLink) window.addFromLink.open(); else toast('Chwila, moduł się ładuje'); } });
   // Shared-list extras (list tab)
   $('results').addEventListener('click', e => {
     const ex = e.target.closest('.list-extras'); if (!ex || !window.lists) return;

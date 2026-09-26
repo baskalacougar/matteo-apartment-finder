@@ -29,7 +29,8 @@ function toFloat(s) {
 /** Extract a rent price (PLN) from free text. Picks the first plausible amount followed by zł/pln. */
 function parsePrice(text) {
   const t = String(text || '');
-  const re = /(\d{1,2}[ .]?\d{3}|\d{3,5})(?:[.,]\d{1,2})?\s*(?:zł|zl|pln)\b/gi;
+  // \b does not work after "zł" ("ł" is not an ASCII word character), hence the explicit lookahead.
+  const re = /(\d{1,2}[ .]?\d{3}|\d{3,5})(?:[.,]\d{1,2})?\s*(?:zł|zl|pln)(?![a-ząćęłńóśźż])/gi;
   let m;
   const found = [];
   while ((m = re.exec(t))) {

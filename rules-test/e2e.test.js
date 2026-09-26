@@ -8,7 +8,7 @@ const { chromium } = require('playwright');
 const path = require('path');
 const assert = require('assert');
 
-const URL = 'http://localhost:5174/?emu';
+const SITE = 'http://localhost:5174/?emu';
 const MATTEO = ['matteohoffman2@gmail.com', 'Matteo Hoffman'];
 const ANNA = ['anna.test@gmail.com', 'Anna Test'];
 const shotDir = path.join(__dirname, '..');
@@ -19,7 +19,7 @@ async function session(browser, [email, name]) {
   const ctx = await browser.newContext({ viewport: { width: 1360, height: 900 } });
   const page = await ctx.newPage();
   page.on('pageerror', e => console.log(`  [${name} pageerror] ${e.message}`));
-  await page.goto(URL, { waitUntil: 'domcontentloaded' });
+  await page.goto(SITE, { waitUntil: 'domcontentloaded' });
   await page.waitForFunction(() => typeof window.devSignIn === 'function');
   await page.evaluate(([e, n]) => window.devSignIn(e, n), [email, name]);
   await page.waitForFunction(() => document.getElementById('gate').hidden === true, null, { timeout: 15000 });
@@ -57,6 +57,52 @@ const waitText = (page, sel, re, timeout = 10000) => page.waitForFunction(([s, r
   await waitText(m, '#cntList', /^1$/);
   ok('Matteo is shown as administrator and adds a listing to the list');
 
+  // --- Add from link, manual path: private Facebook group, no preview service ---
+  const POST = 'Do wynajęcia 2-pokojowe mieszkanie na Ruczaju, 48 m2, balkon, garaż. Cena 2 900 zł + czynsz administracyjny 450 zł. Wolne od 1 października.';
+  await m.click('#addLinkPanel');
+  await m.fill('#alUrl', 'https://www.facebook.com/groups/527336080659504/posts/998877665544/?mibextid=abc');
+  await m.click('#alNext');
+  await m.waitForSelector('#alText');
+  await m.fill('#alText', POST);
+  await m.waitForFunction(() => document.getElementById('alPrice').value === '2900' && document.getElementById('alArea').value === '48' && document.getElementById('alRooms').value === '2');
+  assert.strictEqual(await m.inputValue('#alDistrict'), 'Ruczaj');
+  await m.setInputFiles('#alFile', path.join(__dirname, '..', 'docs', 'icon-192.png'));
+  await m.waitForSelector('.al-card .thumb img');
+  await m.screenshot({ path: path.join(shotDir, 'e2e-addlink.png') });
+  await m.click('#alAccept');
+  await waitText(m, '#cntList', /^2$/);
+  ok('pastes a Facebook link + post text: price 2900, 48 m², 2 rooms, Ruczaj filled in; photo added; accepted to the list');
+
+  // --- Add from link, automatic path: preview service returns a public post ---
+  const { _preview } = require('../functions/index.js');
+  await m.route('**/__preview**', async route => {
+    const u = new URL(route.request().url()).searchParams.get('url');
+    const data = await _preview(u);
+    route.fulfill({ contentType: 'application/json', body: JSON.stringify(data) });
+  });
+  await m.evaluate(() => { window.PREVIEW_ENDPOINT = location.origin + '/__preview'; });
+  await m.click('#addLinkPanel');
+  await m.fill('#alUrl', 'https://www.facebook.com/groups/wynajemkrakow/posts/4298071123604445/');
+  await m.click('#alNext');
+  await m.waitForSelector('.al-note.ok', { timeout: 20000 });
+  const note = await m.innerText('.al-note');
+  assert(/Pobraliśmy podgląd/.test(note));
+  assert(/Mieszkania i pokoje do wynajęcia - Kraków/.test(await m.innerText('.al-card')), 'group name in preview');
+  await m.click('#alAccept');
+  await waitText(m, '#cntList', /^3$/);
+  ok('pastes a public Facebook post: preview fetched automatically (group, text, photo), accepted');
+
+  // --- Link to a portal we already have: instant, full data ---
+  const known = await m.evaluate(() => state.listings.find(l => l.source === 'otodom' && !window.lists.has(l.id)).url);
+  await m.click('#addLinkPanel');
+  await m.fill('#alUrl', known + '?utm_source=facebook');
+  await m.click('#alNext');
+  await m.waitForSelector('.al-note.ok');
+  assert(/w bazie/.test(await m.innerText('.al-note')));
+  await m.click('#alAccept');
+  await waitText(m, '#cntList', /^4$/);
+  ok('pastes an Otodom link: recognised from the database with full data, accepted');
+
   const a = await session(browser, ANNA);
   await waitText(a, '#listsBody', /Nasze mieszkanie/, 15000);
   const annaPanel = await a.innerText('#listsBody');
@@ -65,6 +111,11 @@ const waitText = (page, sel, re, timeout = 10000) => page.waitForFunction(([s, r
 
   await a.click('#tabList');
   await a.waitForSelector('.list-extras');
+  await waitText(a, '#results', /Ruczaju/);
+  await a.locator('.list-item', { hasText: 'Ruczaju' }).locator('.card .title').click();
+  await waitText(a, '#drawerBody', /czynsz administracyjny 450/);
+  await a.keyboard.press('Escape');
+  ok('Anna sees the hand-added Facebook post and opens its details with the full text');
   await a.locator('.list-extras .vote[data-v="1"]').first().click();
   await a.fill('.list-extras .note', 'dzwoniłam, wolne od października');
   await a.waitForTimeout(1200);

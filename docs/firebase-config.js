@@ -8,3 +8,6 @@ window.FIREBASE_CONFIG = {
   messagingSenderId: "997760625829",
   appId: "1:997760625829:web:985f2cc065975dcad5f14c"
 };
+
+// Serwis podglądu postów z Facebooka (funkcja w functions/). Pusty = dodawanie ręczne z wklejoną treścią.
+window.PREVIEW_ENDPOINT = '';

@@ -5,3 +5,4 @@ e2e-*.png
 rules-test/node_modules/
 rules-test/firestore.rules
 rules-test/*.log
+functions/node_modules/

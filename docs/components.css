@@ -106,3 +106,32 @@
 /* Tabs never wrap; long list names are truncated in app.js */
 .tabs { overflow-x: auto; scrollbar-width: none; }
 .tabs button { white-space: nowrap; }
+
+/* ---------- Add from link ---------- */
+.al-grid { display: grid; grid-template-columns: 260px 1fr; gap: 18px; align-items: start; }
+.al-card { cursor: default; box-shadow: var(--shadow-sm); }
+.al-card:hover { transform: none; }
+.al-card .thumb { height: 170px; }
+.al-noimg { flex-direction: column; gap: 4px; text-align: center; padding: 0 16px; }
+.al-noimg span { font-size: 28px; }
+.al-noimg small { font-size: 12px; color: var(--muted); }
+.al-missing { color: #b45309; font-size: 15px; font-weight: 600; }
+.al-img-actions { display: flex; gap: 6px; margin-top: 10px; }
+.al-img-actions label.btn { cursor: pointer; }
+.al-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.al-right textarea { resize: vertical; min-height: 110px; font-size: 13px; line-height: 1.5; }
+.field > span small { font-weight: 400; color: var(--muted); }
+.al-note { margin: 0 0 14px; padding: 10px 12px; border-radius: 12px; font-size: 13px; line-height: 1.5; }
+.al-note.ok { background: var(--green-soft); color: var(--green-ink); }
+.al-note.info { background: #eff6ff; color: #1e3a8a; }
+.al-howto { margin: 6px 0 0; font-size: 13px; color: var(--text-2); }
+.al-howto summary { cursor: pointer; color: var(--green-dark); font-weight: 600; }
+.al-howto p { margin: 8px 0 0; line-height: 1.5; }
+.list-toolbar { grid-column: 1 / -1; display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 12px 14px; box-shadow: var(--shadow-sm); }
+.list-toolbar b { display: block; font-size: 15px; }
+.list-toolbar span { font-size: 12.5px; color: var(--muted); }
+.list-empty-hint { grid-column: 1 / -1; text-align: center; color: var(--muted); padding: 40px 20px; font-size: 14px; }
+.al-panel-btn { margin-top: 8px; }
+@media (max-width: 700px) { .al-grid { grid-template-columns: 1fr; } }
+.al-row input[type=number] { -moz-appearance: textfield; appearance: textfield; padding-right: 8px; }
+.al-row input[type=number]::-webkit-inner-spin-button, .al-row input[type=number]::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }

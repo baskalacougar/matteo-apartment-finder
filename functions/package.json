@@ -1,0 +1,7 @@
+{
+  "name": "wynajemradar-functions",
+  "private": true,
+  "main": "index.js",
+  "engines": { "node": "22" },
+  "dependencies": { "firebase-functions": "^6.0.0", "firebase-admin": "^13.0.0" }
+}
