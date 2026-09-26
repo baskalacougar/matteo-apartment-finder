@@ -201,3 +201,10 @@ html[data-tone="dark"] .drawer, html[data-theme="dark"] .drawer { box-shadow: -2
 :is(html[data-theme="dark"], html[data-tone="dark"]) .badge.src-facebook { color: #7fb2ff; }
 :is(html[data-theme="dark"], html[data-tone="dark"]) .gate-photo-text h2 b { color: #86efac; }
 .theme-foot .btn { white-space: nowrap; }
+
+/* List view: cards (overflow hidden) must not shrink inside the fixed-height flex column. */
+.results.list > * { flex-shrink: 0; }
+.results.list .card .thumb { height: 150px; min-height: 0; align-self: stretch; }
+.results.list .card .thumb img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+.results.list .card .desc { -webkit-line-clamp: 2; }
+@media (max-width: 640px) { .results.list .card .thumb { width: 120px; flex-basis: 120px; height: 120px; } }
