@@ -243,6 +243,22 @@ function render() {
   const meta = finder.isWeb && finder.getMeta ? finder.getMeta() : null;
   const upd = meta && meta.updatedAt ? ` · aktualizacja ${new Date(meta.updatedAt).toLocaleString('pl-PL', { hour: '2-digit', minute: '2-digit', day: 'numeric', month: 'numeric' })}` : '';
   $('statusText').textContent = state.scanning ? 'Skanowanie…' : `${visible.length} z ${counts.all} ogłoszeń${upd}`;
+  const n = visible.length;
+  $('applyCount').textContent = `${n} ${n === 1 ? 'ogłoszenie' : (n % 10 >= 2 && n % 10 <= 4 && (n % 100 < 10 || n % 100 >= 20)) ? 'ogłoszenia' : 'ogłoszeń'}`;
+}
+
+/** "Szukaj": apply filters, close the filter panel on phones and jump to the results. */
+function applyFilters() {
+  if (document.activeElement && document.activeElement.blur) document.activeElement.blur();
+  if (['list', 'hidden'].includes(state.tab)) { const all = $('tabs').querySelector('[data-v=all]'); if (all) all.click(); }
+  scheduleSave(); render();
+  const side = document.querySelector('.sidebar');
+  const phone = side.classList.contains('open');
+  side.classList.remove('open');
+  $('results').scrollTop = 0;
+  const content = document.querySelector('.content'); if (content) content.scrollTop = 0;
+  if (phone) document.querySelector('.toolbar').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  toast(`Znaleziono ${$('applyCount').textContent}`);
 }
 
 function cardHtml(l, kwTerms) {
@@ -773,6 +789,8 @@ async function init() {
   $('logToggle').addEventListener('click', () => { $('log').hidden = !$('log').hidden; });
 
   const ft = $('filtersToggle'); if (ft) ft.addEventListener('click', () => document.querySelector('.sidebar').classList.toggle('open'));
+  $('applyBtn').addEventListener('click', applyFilters);
+  ['priceMin', 'priceMax', 'areaMin', 'areaMax', 'district', 'keyword'].forEach(id => $(id).addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); applyFilters(); } }));
   // Facebook
   $('fbLoginBtn').addEventListener('click', () => finder.fbLogin());
   $('fbFindBtn').addEventListener('click', () => finder.fbFindGroup('Kraków wynajem mieszkanie pokój'));
