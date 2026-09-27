@@ -614,6 +614,7 @@ function openDrawer(id, { keepIndex = false } = {}) {
     // Fresh open: remember where the list was, and add a history entry so the phone's back button
     // closes the listing instead of leaving the site.
     state.listScroll = scrollPositions();
+    document.documentElement.classList.add('drawer-open');
     $('drawerBody').scrollTop = 0;
     if (finder.isWeb && !(history.state && history.state.drawer)) { history.pushState({ drawer: true }, ''); state.drawerHist = true; }
   }
@@ -636,6 +637,7 @@ function restoreScroll(p) {
 function hideDrawer() {
   if ($('drawer').hidden) return;
   $('drawer').hidden = true; state.selectedId = null;
+  document.documentElement.classList.remove('drawer-open');
   restoreScroll(state.listScroll);
 }
 function closeDrawer() {

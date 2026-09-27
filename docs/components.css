@@ -164,3 +164,19 @@
 .toolbar-right #quick { min-width: 130px; }
 @media (max-width: 900px) { .web .tabs { flex-wrap: wrap; overflow: visible; row-gap: 4px; } .toolbar-right .select { max-width: none; flex: 1 1 auto; } }
 .tabs { flex-wrap: wrap; overflow: visible; row-gap: 4px; }
+
+/* List view: the text column must shrink to the card, not to the longest description line. */
+.results.list .card .body { flex: 1 1 auto; min-width: 0; }
+.results.list .card .desc { white-space: normal; overflow: hidden; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; }
+@media (max-width: 640px) {
+  .results.list .card .body { padding: 10px 12px; }
+  .results.list .card .desc { -webkit-line-clamp: 2; font-size: 12.5px; }
+  .results.list .card .title { -webkit-line-clamp: 2; font-size: 14px; }
+  .results.list .card .meta span:nth-child(n+3) { display: none; }
+}
+/* Phones: while a listing is open, the list underneath must not take the scroll gestures (MIUI/Android). */
+@media (max-width: 900px) {
+  html.drawer-open, html.drawer-open body { overflow: hidden !important; }
+  .web .drawer { height: 100%; height: 100dvh; }
+  .web .drawer-body { -webkit-overflow-scrolling: touch; touch-action: pan-y pinch-zoom; overscroll-behavior-y: contain; }
+}
