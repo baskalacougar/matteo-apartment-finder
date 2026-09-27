@@ -15,6 +15,7 @@ const LISTINGS = path.join(DATA_DIR, 'listings.json');
 const META = path.join(DATA_DIR, 'meta.json');
 const KEEP_DAYS = 14;
 const ENRICH_PER_RUN = +(process.env.ENRICH_PER_RUN || 30);
+const ENRICH_OTODOM = +(process.env.ENRICH_OTODOM || 150);
 const PAGES = +(process.env.PAGES || 3);
 
 const filters = { type: 'all', pages: PAGES, priceMin: '', priceMax: '', areaMin: '', areaMax: '', rooms: [], keyword: '', onlyPrivate: false };
@@ -74,11 +75,14 @@ async function main() {
   log('app', `zebrano ${results.length}, nowych ${added}, łącznie ${all.length}`);
 
   // Enrich newest listings that still lack full data (Morizon/NOL descriptions, missing photos).
-  const hasPhotos = l => (l.images || []).some(u => String(u).startsWith('http'));
-  const todo = all
-    .filter(l => !l.detailsFetched && !l.enrichTried && (l.source !== 'otodom' || !hasPhotos(l)))
-    .sort((a, b) => new Date(b.firstSeenAt) - new Date(a.firstSeenAt))
-    .slice(0, ENRICH_PER_RUN);
+  // Otodom's search page only has a ~200-character snippet ending in "...", so every Otodom ad needs its
+  // own page for the full description; it gets a separate, larger budget so it doesn't starve the rest.
+  const newest = (a, b) => new Date(b.firstSeenAt) - new Date(a.firstSeenAt);
+  const pending = all.filter(l => !l.detailsFetched && !l.enrichTried);
+  const todo = [
+    ...pending.filter(l => l.source === 'otodom').sort(newest).slice(0, ENRICH_OTODOM),
+    ...pending.filter(l => l.source !== 'otodom').sort(newest).slice(0, ENRICH_PER_RUN)
+  ];
   let enriched = 0;
   for (const l of todo) {
     try {
