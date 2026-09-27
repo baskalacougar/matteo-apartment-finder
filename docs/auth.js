@@ -6,7 +6,7 @@
  * Firestore layout:  users/{uid}  ->  { email, flags: {listingId: {fav, hidden}}, filters, updatedAt }
  */
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/11.1.0/firebase-app.js';
-import { getAuth, GoogleAuthProvider, signInWithPopup, signInWithRedirect, getRedirectResult, signOut, onAuthStateChanged, connectAuthEmulator, signInWithCredential } from 'https://www.gstatic.com/firebasejs/11.1.0/firebase-auth.js';
+import { initializeAuth, indexedDBLocalPersistence, browserLocalPersistence, browserPopupRedirectResolver, GoogleAuthProvider, signInWithPopup, signInWithRedirect, getRedirectResult, signOut, onAuthStateChanged, connectAuthEmulator, signInWithCredential } from 'https://www.gstatic.com/firebasejs/11.1.0/firebase-auth.js';
 import { getFirestore, doc, getDoc, setDoc, serverTimestamp, increment, connectFirestoreEmulator } from 'https://www.gstatic.com/firebasejs/11.1.0/firebase-firestore.js';
 
 // Local testing only: http://localhost:5174/?emu talks to the Firebase emulators, never to production.
@@ -18,7 +18,10 @@ if (!cfg || !box) {
   if (box) box.hidden = true;
 } else {
   const app = initializeApp(EMULATOR ? { ...cfg, projectId: 'wynajemradar-test' } : cfg);
-  const auth = getAuth(app);
+  // No popup/redirect resolver at start-up: the default one loads an iframe from the auth domain on every
+  // page load and the sign-in state waits for it (slow or blocked by ad blockers = endless loading screen).
+  // It is passed only to the calls that actually need it.
+  const auth = initializeAuth(app, { persistence: [indexedDBLocalPersistence, browserLocalPersistence] });
   const db = getFirestore(app);
   if (EMULATOR) {
     connectAuthEmulator(auth, 'http://127.0.0.1:9099', { disableWarnings: true });
@@ -29,8 +32,8 @@ if (!cfg || !box) {
   }
   const provider = new GoogleAuthProvider();
   const signIn = async () => {
-    try { await signInWithPopup(auth, provider); }
-    catch (e) { if (/popup/i.test(e.code || '')) await signInWithRedirect(auth, provider); else alert('Logowanie nie powiodło się: ' + e.message); }
+    try { await signInWithPopup(auth, provider, browserPopupRedirectResolver); }
+    catch (e) { if (/popup/i.test(e.code || '')) { try { sessionStorage.setItem('wr_redirect', '1'); } catch (_) { /* private mode */ } await signInWithRedirect(auth, provider, browserPopupRedirectResolver); } else alert('Logowanie nie powiodło się: ' + e.message); }
   };
   window.fb = { app, auth, db, signIn, isSiteAdmin: () => !!(auth.currentUser && auth.currentUser.emailVerified && auth.currentUser.email.toLowerCase() === 'matteohoffman2@gmail.com') };
   let user = null;
@@ -58,7 +61,7 @@ if (!cfg || !box) {
       device: /Mobi|Android|iPhone/i.test(navigator.userAgent) ? 'mobile' : 'desktop'
     };
     if (!data.createdAt) profile.createdAt = data.updatedAt || serverTimestamp();
-    await setDoc(doc(db, 'users', user.uid), profile, { merge: true }).catch(e => console.warn('profile save failed', e));
+    setDoc(doc(db, 'users', user.uid), profile, { merge: true }).catch(e => console.warn('profile save failed', e));
     // Merge: what is saved locally in this browser joins what the account already has.
     const merged = window.finder.mergeCloud({ flags: data.flags || {}, filters: data.filters || null });
     await push(merged, true);
@@ -75,12 +78,17 @@ if (!cfg || !box) {
 
   window.cloudSync = { save: state => push(state), get user() { return user; } };
 
-  getRedirectResult(auth).catch(() => {});
-  onAuthStateChanged(auth, async u => {
+  let fromRedirect = false; try { fromRedirect = sessionStorage.getItem('wr_redirect') === '1'; sessionStorage.removeItem('wr_redirect'); } catch (_) { /* private mode */ }
+  if (fromRedirect) getRedirectResult(auth, browserPopupRedirectResolver).catch(() => {});
+  onAuthStateChanged(auth, u => {
     user = u;
     try { localStorage.setItem('wr_auth', u ? '1' : '0'); } catch (e) { /* private mode */ }
     render();
-    if (u) { try { await pull(); } catch (e) { console.warn('cloud load failed', e); } }
-    document.dispatchEvent(new CustomEvent('cloud:auth', { detail: { user: u ? { email: u.email, name: u.displayName } : null } }));
+    // Announce the auth state right away (the page must not wait on Firestore round trips to leave the
+    // loading screen) and keep it on window so listeners registered later can still pick it up.
+    const detail = { user: u ? { email: u.email, name: u.displayName } : null };
+    window.cloudAuth = detail;
+    document.dispatchEvent(new CustomEvent('cloud:auth', { detail }));
+    if (u) pull().catch(e => console.warn('cloud load failed', e));
   });
 }

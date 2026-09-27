@@ -610,10 +610,46 @@ function openDrawer(id, { keepIndex = false } = {}) {
   $('drawerFav').textContent = l.fav ? '★ W ulubionych' : '☆ Ulubione';
   if ($('drawerList') && window.lists) $('drawerList').textContent = window.lists.has(l.id) ? '✓ Na liście' : '+ Do listy';
   $('drawerHide').textContent = l.hidden ? 'Przywróć' : 'Ukryj';
+  if ($('drawer').hidden) {
+    // Fresh open: remember where the list was, and add a history entry so the phone's back button
+    // closes the listing instead of leaving the site.
+    state.listScroll = scrollPositions();
+    $('drawerBody').scrollTop = 0;
+    if (finder.isWeb && !(history.state && history.state.drawer)) { history.pushState({ drawer: true }, ''); state.drawerHist = true; }
+  }
   $('drawer').hidden = false;
 }
 
-function closeDrawer() { $('drawer').hidden = true; state.selectedId = null; }
+function scrollPositions() {
+  const content = document.querySelector('.content');
+  return { win: window.scrollY, results: $('results').scrollTop, content: content ? content.scrollTop : 0 };
+}
+function restoreScroll(p) {
+  if (!p) return;
+  const apply = () => {
+    window.scrollTo(0, p.win);
+    $('results').scrollTop = p.results;
+    const content = document.querySelector('.content'); if (content) content.scrollTop = p.content;
+  };
+  apply(); requestAnimationFrame(apply);
+}
+function hideDrawer() {
+  if ($('drawer').hidden) return;
+  $('drawer').hidden = true; state.selectedId = null;
+  restoreScroll(state.listScroll);
+}
+function closeDrawer() {
+  if (state.drawerHist && history.state && history.state.drawer) { history.back(); return; }   // popstate hides it
+  state.drawerHist = false;
+  hideDrawer();
+}
+window.addEventListener('popstate', () => {
+  state.drawerHist = false;
+  if ($('modal')) closeModal();
+  hideDrawer();
+});
+// A reload while a listing was open leaves a stale history entry: drop its marker.
+if (history.state && history.state.drawer) history.replaceState(null, '');
 
 async function loadDetails(l) {
   l.detailsLoading = true;
@@ -704,8 +740,17 @@ function initGate() {
   const btn = $('gateLogin');
   btn.disabled = false;
   btn.addEventListener('click', () => { if (window.fb && window.fb.signIn) window.fb.signIn(); else toast('Logowanie jeszcze się ładuje, spróbuj za chwilę'); });
+  // Safety net: if Firebase never answers (network, blocker), don't keep the loading screen forever.
+  setTimeout(() => {
+    if (document.documentElement.classList.contains('app-ready')) return;
+    let wasAuth = false; try { wasAuth = localStorage.getItem('wr_auth') === '1'; } catch (e) { /* private mode */ }
+    console.warn('Firebase did not answer in time; showing the page anyway');
+    setGate(!wasAuth);
+  }, 12000);
+}
+function setGateStats() {
   const meta = finder.getMeta && finder.getMeta();
-  if (meta && meta.total) $('gateStats').textContent = `${meta.total} aktualnych ogłoszeń · ostatnia aktualizacja ${new Date(meta.updatedAt).toLocaleString('pl-PL', { hour: '2-digit', minute: '2-digit', day: 'numeric', month: 'numeric' })}`;
+  if (meta && meta.total && $('gateStats')) $('gateStats').textContent = `${meta.total} aktualnych ogłoszeń · ostatnia aktualizacja ${new Date(meta.updatedAt).toLocaleString('pl-PL', { hour: '2-digit', minute: '2-digit', day: 'numeric', month: 'numeric' })}`;
 }
 
 /* ---------- Init ---------- */
@@ -718,7 +763,19 @@ async function init() {
   $('sort').value = state.settings.sort || 'newest';
   $('viewSeg').querySelectorAll('button').forEach(b => b.classList.toggle('active', b.dataset.v === (state.settings.view || 'grid')));
   renderGroups();
+  // Listen for the sign-in state BEFORE the (large) listings download: Firebase often answers first.
+  const onAuth = detail => {
+    setGate(!detail.user);
+    if (detail.user && !state.authToastShown) { state.authToastShown = true; toast('Zalogowano: ' + (detail.user.name || detail.user.email) + '. Ulubione zapisują się na koncie.'); }
+  };
+  document.addEventListener('cloud:auth', e => onAuth(e.detail));
+  document.addEventListener('cloud:merged', async () => { state.settings = await finder.getSettings(); applyFiltersToUI(state.settings.filters); if (state.listings.length) render(); });
+  initGate();
+  if (window.cloudAuth) onAuth(window.cloudAuth);
+  $('progress').hidden = false;
   state.listings = await finder.getListings();
+  $('progress').hidden = true;
+  setGateStats();
   render();
   setFbStatus(await finder.fbStatus());
   if (finder.isWeb) { const c = {}; state.listings.forEach(l => { c[l.source] = (c[l.source] || 0) + 1; }); Object.keys(c).forEach(id => { state.status[id] = { status: 'done', count: c[id] }; }); renderSourceStatus(); }
@@ -816,12 +873,6 @@ async function init() {
     clearTimeout(renderTimer); renderTimer = setTimeout(render, 400);
   });
   // Account sign-in (web): re-apply saved favourites/filters once the cloud state is merged.
-  document.addEventListener('cloud:merged', async () => { state.settings = await finder.getSettings(); applyFiltersToUI(state.settings.filters); render(); });
-  document.addEventListener('cloud:auth', e => {
-    setGate(!e.detail.user);
-    if (e.detail.user) toast('Zalogowano: ' + (e.detail.user.name || e.detail.user.email) + '. Ulubione zapisują się na koncie.');
-  });
-  initGate();
   // Fill in photos missing from older OLX entries without waiting for the next scan.
   finder.enrichMissing();
   finder.onDone(async d => {

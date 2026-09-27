@@ -142,3 +142,13 @@
 .apply-bar small { font-weight: 500; opacity: .85; font-size: 12.5px; margin-left: 2px; }
 .apply-bar small:not(:empty)::before { content: "· "; }
 @media (max-width: 900px) { .apply-bar { bottom: 0; margin-bottom: 0; } .web .sidebar.open { padding-bottom: 0; } }
+
+/* Listing details: always-visible "Wróć do listy" */
+.drawer-head { gap: 10px; position: sticky; top: 0; z-index: 4; background: var(--surface); }
+.drawer-head .badge { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.drawer-back { font-weight: 600; padding: 9px 14px 9px 10px; gap: 4px; flex: 0 0 auto; }
+.drawer-body { overscroll-behavior: contain; }
+@media (max-width: 900px) {
+  .drawer-back { background: var(--accent-grad); color: var(--on-accent, #fff); border-color: transparent; padding: 11px 16px 11px 12px; font-size: 15px; }
+  .web .drawer { z-index: 40; }
+}
