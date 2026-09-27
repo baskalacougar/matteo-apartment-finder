@@ -152,3 +152,15 @@
   .drawer-back { background: var(--accent-grad); color: var(--on-accent, #fff); border-color: transparent; padding: 11px 16px 11px 12px; font-size: 15px; }
   .web .drawer { z-index: 40; }
 }
+
+/* Toolbar: tabs are never clipped; search/sort shrink first, then wrap to a second row. */
+.toolbar { flex-wrap: wrap; row-gap: 10px; }
+.tabs { flex: 0 0 auto; max-width: 100%; }
+.toolbar-right { flex: 1 1 auto; justify-content: flex-end; min-width: 0; margin-left: auto; }
+.toolbar-right #quick { flex: 1 1 150px; min-width: 150px; max-width: 280px; width: auto; }
+.toolbar-right .select { flex: 0 0 auto; }
+@media (max-width: 900px) { .toolbar-right #quick { max-width: none; flex-basis: 100%; } .toolbar-right { justify-content: flex-start; } }
+.toolbar-right .select { max-width: 150px; }
+.toolbar-right #quick { min-width: 130px; }
+@media (max-width: 900px) { .web .tabs { flex-wrap: wrap; overflow: visible; row-gap: 4px; } .toolbar-right .select { max-width: none; flex: 1 1 auto; } }
+.tabs { flex-wrap: wrap; overflow: visible; row-gap: 4px; }
