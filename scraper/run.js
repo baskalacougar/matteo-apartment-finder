@@ -78,7 +78,9 @@ async function main() {
   // Otodom's search page only has a ~200-character snippet ending in "...", so every Otodom ad needs its
   // own page for the full description; it gets a separate, larger budget so it doesn't starve the rest.
   const newest = (a, b) => new Date(b.firstSeenAt) - new Date(a.firstSeenAt);
-  const pending = all.filter(l => !l.detailsFetched && !l.enrichTried);
+  // A failed page (timeouts under load are common) is retried in later runs, up to 3 attempts.
+  const tries = l => l.enrichTries || (l.enrichTried ? 1 : 0);
+  const pending = all.filter(l => !l.detailsFetched && (!l.enrichTried || (l.detailsError && tries(l) < 3)));
   const todo = [
     ...pending.filter(l => l.source === 'otodom').sort(newest).slice(0, ENRICH_OTODOM),
     ...pending.filter(l => l.source !== 'otodom').sort(newest).slice(0, ENRICH_PER_RUN)
@@ -86,12 +88,13 @@ async function main() {
   let enriched = 0;
   for (const l of todo) {
     try {
-      Object.assign(l, await details.fetchDetails(l), { enrichTried: true });
+      Object.assign(l, await details.fetchDetails(l), { enrichTried: true, enrichTries: tries(l) + 1, detailsError: undefined });
       enriched++;
     } catch (e) {
-      l.enrichTried = true; l.detailsError = e.message;
-      log(l.source, `szczegóły nieudane: ${e.message}`);
+      l.enrichTried = true; l.enrichTries = tries(l) + 1; l.detailsError = e.message;
+      log(l.source, `szczegóły nieudane (próba ${l.enrichTries}/3): ${e.message}`);
     }
+    await new Promise(r => setTimeout(r, 300 + Math.random() * 400));   // be gentle with the portals
   }
   log('app', `uzupełniono szczegóły: ${enriched}/${todo.length}`);
 
