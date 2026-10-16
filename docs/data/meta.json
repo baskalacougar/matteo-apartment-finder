@@ -1,41 +1,41 @@
 {
-  "updatedAt": "2026-10-16T12:36:43.104Z",
-  "runId": "mvay611c",
-  "total": 6547,
-  "added": 150,
-  "seconds": 291,
+  "updatedAt": "2026-10-16T17:38:58.570Z",
+  "runId": "mvb8v3yq",
+  "total": 6538,
+  "added": 147,
+  "seconds": 460,
   "sources": {
     "gratka": {
       "ok": true,
       "count": 105,
-      "ms": 8099
+      "ms": 12593
     },
     "olx": {
       "ok": true,
-      "count": 311,
-      "ms": 16254
-    },
-    "otodom": {
-      "ok": true,
-      "count": 211,
-      "ms": 21355
+      "count": 312,
+      "ms": 22423
     },
     "morizon": {
       "ok": true,
       "count": 162,
-      "ms": 21980
+      "ms": 30815
+    },
+    "otodom": {
+      "ok": true,
+      "count": 221,
+      "ms": 32231
     },
     "nol": {
       "ok": true,
       "count": 245,
-      "ms": 24032
+      "ms": 34193
     }
   },
   "counts": {
-    "nol": 396,
-    "olx": 3684,
-    "otodom": 1300,
-    "morizon": 1165,
+    "nol": 402,
+    "olx": 3668,
+    "otodom": 1296,
+    "morizon": 1170,
     "gratka": 2
   }
 }
